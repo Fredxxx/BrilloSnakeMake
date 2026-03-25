@@ -329,15 +329,15 @@ def genIDXs(args):
     print("----- scan para prepared -----", flush=True)
 
 def testWildcard(args):
-    inJSON = args.input[0]
-    inScanPar = args.input[1] 
+    # inJSON = args.input[0]
+    # inScanPar = args.input[1] 
     outPath = args.output[0]
     
-    with open(inJSON, 'r') as f:
-        js = json.load(f)
+    # with open(inJSON, 'r') as f:
+    #     js = json.load(f)
         
-    with open(inScanPar, 'r') as f:
-        scanPara = json.load(f) 
+    # with open(inScanPar, 'r') as f:
+    #     scanPara = json.load(f) 
     
     with open(outPath, "w", encoding="utf-8") as dat:
         dat.write("curIDX")
@@ -346,6 +346,61 @@ def testWildcard(args):
     with open(outPath, "w", encoding="utf-8") as dat:
         dat.write(f"index: {outPath}")
 
+def propExcVol(args):
+    inPath = args.input[0]
+    inPSFreal = args.input[1]
+    inPSFimag = args.input[2]
+    outPSFreal = args.output[0]
+    outPSFimag = args.output[1]
+    
+    with open(inPath, 'r') as f:
+        js = json.load(f)
+    
+    psfReal = tiff.imread(inPSFreal)
+    psfImag = tiff.imread(inPSFimag)
+    psf = psfReal + 1j*psfImag
+    
+    if js["adv"]["showImg"] == 1:
+        plot_max_projections(np.abs(psf), voxel_size=(js["optExc"]["N"],) * 3, cmap='hot', title="psf excitation loaded", space="real")
+    elif js["adv"]["showImg"] == 2:
+        plot_max_projections(np.abs(psf), voxel_size=(js["optExc"]["N"],) * 3, cmap='hot', title="psf excitation loaded", space="real")
+        plot_max_projections(np.angle(psf), voxel_size=(js["optExc"]["N"],) * 3, cmap='hot', title="ps excitation loaded", space="ftt") 
+    
+    tiff.imwrite(outPSFreal, psf.real.astype(np.float32))
+    tiff.imwrite(outPSFimag, psf.imag.astype(np.float32))   
+        
+def propDetVol(args):
+    inPSFreal = args.input[0]
+    inPSFimag = args.input[1]
+    outPSFreal = args.output[0]
+    outPSFimag = args.output[1]
+    with open(outPSFreal, "w", encoding="utf-8") as dat:
+        dat.write(f"index: {inPSFreal} {outPSFreal}")
+    with open(outPSFimag, "w", encoding="utf-8") as dat:
+        dat.write(f"index: {inPSFimag} {outPSFimag}")
+        
+def genPS(args):
+    inPSFrealExc = args.input[0]
+    inPSFimagExc = args.input[1]
+    inPSFrealDet = args.input[2]
+    inPSFimagDet = args.input[3]
+    outPS = args.output[0]
+    with open(outPS, "w", encoding="utf-8") as dat:
+        dat.write(f"index: {inPSFrealExc} {inPSFimagExc} {outPS}")
+        
+    # with open(inJSON, 'r') as f:
+    #         js = json.load(f)
+    #     with open(inScanPar, 'r') as f:
+    #         sp = json.load(f)
+            
+    #     t = proVol[sp["coo"][i]]
+    #     del proVol
+    #     gc.collect()
+        
+    #     t = bb.Bpm3d(dn=t, units = (js["optExc"]["d"],)*3, lam=js["optExc"]["lam"]/js["optExc"]["n0"])
+    #     psfEscat = t.propagate(u0 = psfE[0,:,:])
+    
+    
 # def propVol(i):
 #     snakemake = snakemakeDebug()
 #     inJSON = snakemake.input.paraJSON
@@ -425,6 +480,9 @@ if __name__ == "__main__":
     add_command(subParsers, "genDetPSF", genDetPSF, parents=[ioParser])
     add_command(subParsers, "genAngleSpace", genAngleSpace, parents=[ioParser])
     add_command(subParsers, "genIDXs", genIDXs, parents=[ioParser])
+    add_command(subParsers, "propExcVol", propExcVol, parents=[ioParser])
+    add_command(subParsers, "propDetVol", propDetVol, parents=[ioParser])
+    add_command(subParsers, "genPS", genPS, parents=[ioParser])
     add_command(subParsers, "testWildcard", testWildcard, parents=[ioParser])
     
     if len(sys.argv) <= 1:
@@ -440,7 +498,9 @@ if __name__ == "__main__":
                 thetaVol = "../results/02_thetaVol.tif",
                 phiVol   = "../results/02_phiVol.tif",
                 scanPara = "../results/02_scanPara.json",
-                testW = "../results/03_testW_{idx}.txt"
+                #scanPara = "../results/02_scanPara.json",
+                #scanPara = "../results/02_scanPara.json",
+                #testW = "../results/03_testW_{idx}.txt"
                 #psfSys   = "../results/03_psfSys_{idx}.tif"
              )
         
@@ -473,79 +533,7 @@ if __name__ == "__main__":
         
     else: 
         args = parser.parse_args(); args.func(args)
- 
-    
-    # parser = argparse.ArgumentParser()
-    # parser.add_argument("command", nargs="?")      
-    # parser.add_argument("--input", nargs="+") 
-    # parser.add_argument("--output", nargs="+")
-    # args = parser.parse_args()
 
-    # if args.command == "loadPara":
-    #     loadPara(args.input[0], args.output[0])
-    # elif args.command == "loadPadSampleVol":
-    #     loadPadSampleVol(args.input[0], args.output[0])
-    # elif args.command == "genExcPSF":
-    #     realPath, imagPath = args.output 
-    #     genExcPSF(args.input[0], realPath, imagPath)
-    # elif args.command == "genDetPSF":
-    #     realPath, imagPath = args.output 
-    #     genDetPSF(args.input[0], realPath, imagPath)
-    # elif args.command == "genAngleSpace":
-    #     thetaVol, phiVol = args.output 
-    #     genAngleSpace(args.input[0], thetaVol, phiVol)  
-    # elif args.command == "genIDXs":
-    #     genIDXs(args.input[0], args.output[0])
-    # elif args.command == "testWildcard":
-    #     testWildcard(args.input[0], args.input[1], args.output[0])
-    # else: 
-    #     print("----- debug modus -----")
-    #     p = SimpleNamespace(
-            # paraTXT = "../data/para.txt",
-            # paraJSON = "../results/01_paraTemp.json",
-            # propVol  = "../results/02_propVol.tif",
-    #         paraTXT  = r"C:\temp\snakemake\data\para.txt",
-    #         paraJSON = r"C:\temp\snakemake\results\01_paraTemp.json",
-    #         propVol  = r"C:\temp\snakemake\results\02_propVol.tif",
-    #         psfEreal = r"C:\temp\snakemake\results\02_psfEreal.tif",
-    #         psfEimag = r"C:\temp\snakemake\results\02_psfEimag.tif",
-    #         psfDreal = r"C:\temp\snakemake\results\02_psfDreal.tif",
-    #         psfDimag = r"C:\temp\snakemake\results\02_psfDimag.tif",
-    #         thetaVol = r"C:\temp\snakemake\results\02_thetaVol.tif",
-    #         phiVol   = r"C:\temp\snakemake\results\02_phiVol.tif",
-    #         scanPara = r"C:\temp\snakemake\results\02_scanPara.json",
-    #         psfSys   = r"C:\temp\snakemake\results\03_psfSys_{idx}.tif"
-    #     )
-    #     # 01
-    #     loadPara(p.paraTXT, p.paraJSON)
-    #      # snakemake = snakemakeDebug()
-    #      # with open(snakemake.input.paraJSON, 'r') as f:
-    #      #     jsDebug = json.load(f)
-        
-    #     # 02 - parallel
-    #     loadPadSampleVol(p.paraJSON, p.propVol)
-    #     genExcPSF(p.paraJSON, p.psfEreal, p.psfEimag)
-    #     genDetPSF(p.paraJSON, p.psfDreal, p.psfDimag)
-    #     genAngleSpace(p.paraJSON, p.thetaVol, p.phiVol)
-    #     genIDXs(p.paraJSON, p.scanPara)
-
-    #     # # 03 run loop
-    #     # with open(snakemake.input.scanPara, 'r') as f:
-    #     #     jsScanDebug = json.load(f)
-    #     # for curIDX in range(jsScanDebug["idxMax"]):
-    #     #     testWildcard(curIDX)
-    #     # # 03 run loopy
-    #     # with open(snakemake.input.scanJSON, 'r') as f:
-    #     #     jsScanDebug = json.load(f)
-    #     # for curIDX in range(jsScanDebug["scan"]["maxIDX"]):
-    #     #     r1(curIDX)
-    #     #     r2(curIDX)
-    #     #     r3(curIDX)
-    #     #     r4(curIDX)
-        
- 
-        
- 
     
 # def process_shift2(coo, padded_scatVol, psfE, psfDgen, optExc, optDet, optGen, path, theta, phi, i, j, w, idx, idxMax):
       

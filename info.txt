@@ -1,3 +1,19 @@
+ToDo:
+- propExc, add functionality
+- propExc, add 90 and 0deg
+- propExc, add plotting
+- propExc, wildcards
+- do for propDet as well
+- gensysPSF
+- check thorougly 
+
+For later:
+- genSysPS
+- calcAngles
+- calcBrilloSpec 
+(- saveHist or other stuff in subfolder)
+- make final images
+
 LapPC (cmd + pip?)
 cd C:\temp\snakemake -> go to folder
 snakemakeEnv\Scripts\activate -> activate environment
@@ -9,6 +25,9 @@ snakemake -s SnakefileAP --cores 1
 Laptop miniforge
 mamba activate snakemakeEnv
 
+
+issues: 
+1. temp() not working properly but if using snakemake --delete-temp-outputs it delets it -> hopefully just Windows accessing temp() file issue
 
 #functions taking forever1:
 from scipy.ndimage import zoom

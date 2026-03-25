@@ -15,7 +15,7 @@ optDet.NA = 0.8
 optDet.lam = 0.580
 optDet.angle = 00
 
-scanPara.xSteps = 4
+scanPara.xSteps = 2
 scanPara.ySteps = 2
 scanPara.zSteps = 1
 scanPara.xRange = 1024 # in pixels

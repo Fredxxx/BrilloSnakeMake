@@ -17,7 +17,12 @@ rule all:
         "results/02_thetaVol.tif",
         "results/02_phiVol.tif",
         "results/02_scanPara.json",
-        getScanIDX
+        "results/03_I_psfErealScat.tif",
+        "results/03_I_psfEimagScat.tif",
+        "results/03_I_psfDrealScat.tif",
+        "results/03_I_psfDimagScat.tif",
+        "results/03_II_psSys.tif"
+        #getScanIDX
 
 rule loadPara:
     input:
@@ -82,7 +87,7 @@ rule genAngleSpace:
         --output {output.thetaVol} {output.phiVol} 
         """
 
-checkpoint  genIDXs:
+checkpoint genIDXs:
     input:
         paraJSON = "results/01_paraTemp.json" 
     output:
@@ -94,15 +99,60 @@ checkpoint  genIDXs:
         --output {output.scanPara}
         """
 
-rule testWildcard:
+#rule testWildcard:
+#    input:
+#        paraJSON = "results/01_paraTemp.json",
+#        scanPara = "results/02_scanPara.json"
+#    output:
+#        testW = "results/03_testW_{idx}.txt"
+#    shell:
+#        """
+#        python scripts/fun.py testWildcard \
+#        --input {input.paraJSON} {input.scanPara}\
+#        --output {output.testW}
+#        """
+
+rule propExcVol:
     input:
         paraJSON = "results/01_paraTemp.json",
-        scanPara = "results/02_scanPara.json"
+        inPSFreal = "results/02_psfEreal.tif",
+        inPSFimag = "results/02_psfEimag.tif" 
     output:
-        testW = "results/03_testW_{idx}.txt"
+        outPSFreal = temp("results/03_I_psfErealScat.tif"),
+        outPSFimag = temp("results/03_I_psfEimagScat.tif")
     shell:
         """
-        python scripts/fun.py testWildcard \
-        --input {input.paraJSON} {input.scanPara}\
-        --output {output.testW}
+        python scripts/fun.py propExcVol \
+        --input {input.paraJSON} {input.inPSFreal} {input.inPSFimag}\
+        --output {output.outPSFreal} {output.outPSFimag}
+        """
+
+rule propDetVol:
+    input:
+        inPSFreal = "results/02_psfDreal.tif",
+        inPSFimag = "results/02_psfDimag.tif" 
+    output:
+        outPSFreal = temp("results/03_I_psfDrealScat.tif"),
+        outPSFimag = temp("results/03_I_psfDimagScat.tif")
+    shell:
+        """
+        python scripts/fun.py propDetVol \
+        --input {input.inPSFreal} {input.inPSFimag}\
+        --output {output.outPSFreal} {output.outPSFimag}
+        """
+
+rule genPS:
+    input:
+        inPSFrealExc = "results/03_I_psfErealScat.tif",
+        inPSFimagExc = "results/03_I_psfEimagScat.tif", 
+        inPSFrealDet = "results/03_I_psfDrealScat.tif",
+        inPSFimagDet = "results/03_I_psfDimagScat.tif"
+    output:
+        outPS = "results/03_II_psSys.tif"
+    shell:
+        """
+        python scripts/fun.py genPS \
+        --input {input.inPSFrealExc} {input.inPSFimagExc} \
+                {input.inPSFrealDet} {input.inPSFimagDet}\
+        --output {output.outPS}
         """
