@@ -1,0 +1,11 @@
+cd C:\temp\snakemake -> go to folder
+snakemakeEnv\Scripts\activate -> activate environment
+snakemake --cores 1 -> start file (snakemake -s Snakefile_01_02 --cores 1)
+
+snakemake -s SnakefileAP --cores 1
+#functions taking forever1:
+from scipy.ndimage import zoom
+scatVol = zoom(scatVol, scale_factors, order=1)
+
+from numpy import rot90
+from scipy.ndimage import rotate

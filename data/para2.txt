@@ -1,0 +1,26 @@
+mainPath = "C:/Fred/temp/"
+name = "90deg_tabea_32x32_gaussSheet1"
+scatPath = 'C:\\Fred\\temp\\Tabea_mouseembryo.tif'
+mode = "GaussBeam" #"GaussSheet", "Besselbeam"
+
+optExc.N = 1024
+optExc.d= 0.075 
+optExc.NA = 0.05
+optExc.n0 = 1.33
+optExc.lam = 0.532
+
+optDet.NA = 0.8
+optDet.lam = 0.580
+optDet.angle = 00
+
+optGen.Vs = 1490 * 10**6 #m/s 
+optGen.BSshiftA = 5 # GHz
+optGen.BSwidthA = 0.29 # GHz
+optGen.BSspecStart = 2 # GHz
+optGen.BSspecEnd  = 7 # GHz
+optGen.BSspecRes = 0.01 # GHz
+
+# for advanced users and debugging
+adv.pad = 3 
+adv.nOff = 0 # add to read loaded image
+adv.showImg = False
