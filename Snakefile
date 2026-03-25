@@ -26,7 +26,7 @@ rule loadPara:
         paraJSON = "results/01_paraTemp.json"
     shell:
         """
-        python scripts/funAP.py loadPara \
+        python scripts/fun.py loadPara \
         --input {input.paraTXT} \
         --output {output.paraJSON}
         """
@@ -38,7 +38,7 @@ rule loadPadSampleVol:
         propVol = "results/02_propVol.tif"
     shell:
         """
-        python scripts/funAP.py loadPadSampleVol \
+        python scripts/fun.py loadPadSampleVol \
         --input {input.paraJSON} \
         --output {output.propVol}
         """
@@ -51,7 +51,7 @@ rule genExcPSF:
         psfEimag = "results/02_psfEimag.tif"
     shell:
         """
-        python scripts/funAP.py genExcPSF \
+        python scripts/fun.py genExcPSF \
         --input {input.paraJSON}  \
         --output {output.psfEreal} {output.psfEimag} 
         """
@@ -64,7 +64,7 @@ rule genDetPSF:
         psfDimag = "results/02_psfDimag.tif"
     shell:
         """
-        python scripts/funAP.py genDetPSF \
+        python scripts/fun.py genDetPSF \
         --input {input.paraJSON} \
         --output {output.psfDreal} {output.psfDimag} 
         """
@@ -77,7 +77,7 @@ rule genAngleSpace:
         phiVol = "results/02_phiVol.tif"
     shell:
         """
-        python scripts/funAP.py genAngleSpace \
+        python scripts/fun.py genAngleSpace \
         --input {input.paraJSON} \
         --output {output.thetaVol} {output.phiVol} 
         """
@@ -89,7 +89,7 @@ checkpoint  genIDXs:
         scanPara = "results/02_scanPara.json"
     shell:
         """
-        python scripts/funAP.py genIDXs \
+        python scripts/fun.py genIDXs \
         --input {input.paraJSON} \
         --output {output.scanPara}
         """
@@ -102,7 +102,7 @@ rule testWildcard:
         testW = "results/03_testW_{idx}.txt"
     shell:
         """
-        python scripts/funAP.py testWildcard \
+        python scripts/fun.py testWildcard \
         --input {input.paraJSON} {input.scanPara}\
         --output {output.testW}
         """

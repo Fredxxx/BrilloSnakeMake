@@ -30,4 +30,4 @@ optGen.BSspecRes = 0.01 # GHz
 # for advanced users and debugging
 adv.pad = 1 #padding array
 adv.nOff = 1.33 # add to read loaded image
-adv.showImg = 1 # 0 - no plotting, 1- simple plotting, 2 - advanced plotting
+adv.showImg = 0 # 0 - no plotting, 1- simple plotting, 2 - advanced plotting

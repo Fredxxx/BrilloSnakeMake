@@ -403,9 +403,12 @@ if __name__ == "__main__":
     else: 
         print("----- debug modus -----")
         p = SimpleNamespace(
-            paraTXT  = r"C:\temp\snakemake\data\para.txt",
-            paraJSON = r"C:\temp\snakemake\results\01_paraTemp.json",
-            propVol  = r"C:\temp\snakemake\results\02_propVol.tif",
+            paraTXT = "../data/para.txt",
+            paraJSON = "../results/01_paraTemp.json",
+            propVol  = "../results/02_propVol.tif",
+            #paraTXT  = r"C:\temp\snakemake\data\para.txt",
+            #paraJSON = r"C:\temp\snakemake\results\01_paraTemp.json",
+            #propVol  = r"C:\temp\snakemake\results\02_propVol.tif",
             psfEreal = r"C:\temp\snakemake\results\02_psfEreal.tif",
             psfEimag = r"C:\temp\snakemake\results\02_psfEimag.tif",
             psfDreal = r"C:\temp\snakemake\results\02_psfDreal.tif",
@@ -423,10 +426,10 @@ if __name__ == "__main__":
         
         # 02 - parallel
         loadPadSampleVol(p.paraJSON, p.propVol)
-        genExcPSF(p.paraJSON, p.psfEreal, p.psfEimag)
-        genDetPSF(p.paraJSON, p.psfDreal, p.psfDimag)
-        genAngleSpace(p.paraJSON, p.thetaVol, p.phiVol)
-        genIDXs(p.paraJSON, p.scanPara)
+        # genExcPSF(p.paraJSON, p.psfEreal, p.psfEimag)
+        # genDetPSF(p.paraJSON, p.psfDreal, p.psfDimag)
+        # genAngleSpace(p.paraJSON, p.thetaVol, p.phiVol)
+        # genIDXs(p.paraJSON, p.scanPara)
 
     #     # # 03 run loop
     #     # with open(snakemake.input.scanPara, 'r') as f:

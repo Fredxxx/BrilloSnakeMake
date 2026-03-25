@@ -1,4 +1,5 @@
 import os
+import sys
 from types import SimpleNamespace
 import json
 import argparse
@@ -95,6 +96,11 @@ def plot_max_projections(volume, voxel_size=(1.0, 1.0, 1.0), cmap='hot', title="
 
     #plt.tight_layout(rect=[0, 0, 1, 0.95])
     return fig, axes
+  
+def add_command(subParsers, name, func, parents=None):
+    subparser = subParsers.add_parser(name, parents=parents or [])
+    subparser.set_defaults(func=func)
+    return subparser
 
 #%% active functions -- which are called by snakemake
 def loadPara(args):
@@ -134,11 +140,14 @@ def loadPara(args):
         json.dump(result, f, indent=4)
     print("----- para loaded -----", flush=True)
 
-def loadPadSampleVol(inPath, outPath):
+def loadPadSampleVol(args):
+    inPath = args.input[0]
+    outPath = args.output[0]
+    
     # load image, swap axis, zoom and pad
     with open(inPath, 'r') as f:
         js = json.load(f)
-    print(js)
+    #print(js)
     scatVol = tiff.imread(js["scatPath"])/10000 + js["adv"]["nOff"]
     scatVol = np.swapaxes(scatVol, 0, 2)
     sf = 0.23/js["optExc"]["d"]
@@ -157,7 +166,10 @@ def loadPadSampleVol(inPath, outPath):
     #print(f"--- sample loaded: {js['scatPath']}", flush=True)
     print("----- sample loaded -----", flush=True)
 
-def genExcPSF(inPath, outPreal, outPimag):
+def genExcPSF(args):
+    inPath = args.input[0]
+    outPreal = args.output[0]
+    outPimag = args.output[1]
     
     with open(inPath, 'r') as f:
         js = json.load(f)
@@ -208,7 +220,11 @@ def genExcPSF(inPath, outPreal, outPimag):
     tiff.imwrite(outPimag, psfE.imag.astype(np.float32))
     print("----- excitation PSF generated -----", flush=True) 
 
-def genDetPSF(inPath, outPreal, outPimag):  
+def genDetPSF(args):  
+    inPath = args.input[0]
+    outPreal = args.output[0]
+    outPimag = args.output[1]
+    
     with open(inPath, 'r') as f:
         js = json.load(f)
         
@@ -233,8 +249,12 @@ def genDetPSF(inPath, outPreal, outPimag):
     tiff.imwrite(outPimag, psfD.imag.astype(np.float32))
     print("----- detection PSF generated -----", flush=True)
 
-def genAngleSpace(inPath, outPtheta, outPphi):
+def genAngleSpace(args):
     # xxx --- could be further devided into phi an theta generation 
+    inPath = args.input[0]
+    outPtheta = args.output[0]
+    outPphi = args.output[1]
+    
     with open(inPath, 'r') as f:
         js = json.load(f)
     
@@ -259,7 +279,10 @@ def genAngleSpace(inPath, outPtheta, outPphi):
     
     print("----- angle space generated -----", flush=True)
     
-def genIDXs(inPath, outPath):
+def genIDXs(args):
+    inPath = args.input[0]
+    outPath = args.output[0]
+    
     with open(inPath, 'r') as f:
         js = json.load(f)
 
@@ -305,10 +328,13 @@ def genIDXs(inPath, outPath):
         json.dump(scanData, f, indent=4)
     print("----- scan para prepared -----", flush=True)
 
-def testWildcard(inJSON, inScanPar, outPath):
- 
-    # with open(inJSON, 'r') as f:
-    #     js = json.load(f)
+def testWildcard(args):
+    inJSON = args.input[0]
+    inScanPar = args.input[1] 
+    outPath = args.output[0]
+    
+    with open(inJSON, 'r') as f:
+        js = json.load(f)
         
     with open(inScanPar, 'r') as f:
         scanPara = json.load(f) 
@@ -320,33 +346,33 @@ def testWildcard(inJSON, inScanPar, outPath):
     with open(outPath, "w", encoding="utf-8") as dat:
         dat.write(f"index: {outPath}")
 
-def propVol(i):
-    snakemake = snakemakeDebug()
-    inJSON = snakemake.input.paraJSON
-    inScanPar = snakemake.input.scanPara
-    proVol = snakemake.output.proVol
-    psfE = snakemake.output.psfE
-    psfD = snakemake.output.psfD
-    outPath = snakemake.output.psfSys
+# def propVol(i):
+#     snakemake = snakemakeDebug()
+#     inJSON = snakemake.input.paraJSON
+#     inScanPar = snakemake.input.scanPara
+#     proVol = snakemake.output.proVol
+#     psfE = snakemake.output.psfE
+#     psfD = snakemake.output.psfD
+#     outPath = snakemake.output.psfSys
      
-    with open(inJSON, 'r') as f:
-        js = json.load(f)
-    with open(inScanPar, 'r') as f:
-        sp = json.load(f)
+#     with open(inJSON, 'r') as f:
+#         js = json.load(f)
+#     with open(inScanPar, 'r') as f:
+#         sp = json.load(f)
         
-    t = proVol[sp["coo"][i]]
-    del proVol
-    gc.collect()
+#     t = proVol[sp["coo"][i]]
+#     del proVol
+#     gc.collect()
     
-    t = bb.Bpm3d(dn=t, units = (js["optExc"]["d"],)*3, lam=js["optExc"]["lam"]/js["optExc"]["n0"])
-    psfEscat = t.propagate(u0 = psfE[0,:,:])
+#     t = bb.Bpm3d(dn=t, units = (js["optExc"]["d"],)*3, lam=js["optExc"]["lam"]/js["optExc"]["n0"])
+#     psfEscat = t.propagate(u0 = psfE[0,:,:])
 
-    t = np.rot90(t, k=1, axes=(1, 2))
-    t = bb.Bpm3d(dn=t, units = (js["optExc"]["d"],)*3, lam=js["optDet"]["lam"]/js["optExc"]["n0"])
-    psfDscat = t.propagate(u0 = psfD[0,:,:])
+#     t = np.rot90(t, k=1, axes=(1, 2))
+#     t = bb.Bpm3d(dn=t, units = (js["optExc"]["d"],)*3, lam=js["optDet"]["lam"]/js["optExc"]["n0"])
+#     psfDscat = t.propagate(u0 = psfD[0,:,:])
     
-    # Powerspectrum 
-    psfS = psfEscat * psfDscat
+#     # Powerspectrum 
+#     psfS = psfEscat * psfDscat
     
     #td = padded_scatVol[coo[4]:coo[5], coo[0]:coo[1], coo[2]:coo[3]]
     #plot_max_projections(te, voxel_size=(optExc.dx, optExc.dx, optExc.dx), cmap='hot', title="te")
@@ -380,6 +406,7 @@ def propVol(i):
         
 #%% main   
 if __name__ == "__main__":
+
     # general io parser
     ioParser = argparse.ArgumentParser(add_help=False)
     ioParser.add_argument("--input", nargs="+", required=True)
@@ -390,21 +417,63 @@ if __name__ == "__main__":
     parser.set_defaults(func=lambda args: parser.print_help())
 
     subParsers = parser.add_subparsers(required=True)
-  
-    def add_command(subParsers, name, func, parents=None):
-        subparser = subParsers.add_parser(name, parents=parents or [])
-        subparser.set_defaults(func=func)
-        return subparser
     
     # add subcommand - function
     add_command(subParsers, "loadPara", loadPara, parents=[ioParser])
-    #add_command(subParsers, "loadPadSampleVol", loadPadSampleVol, parents=[ioParser])
+    add_command(subParsers, "loadPadSampleVol", loadPadSampleVol, parents=[ioParser])
+    add_command(subParsers, "genExcPSF", genExcPSF, parents=[ioParser])
+    add_command(subParsers, "genDetPSF", genDetPSF, parents=[ioParser])
+    add_command(subParsers, "genAngleSpace", genAngleSpace, parents=[ioParser])
+    add_command(subParsers, "genIDXs", genIDXs, parents=[ioParser])
+    add_command(subParsers, "testWildcard", testWildcard, parents=[ioParser])
     
-    # args parsen
-    args = parser.parse_args()
-
-    # zentrale Dispatch-Logik
-    args.func(args)
+    if len(sys.argv) <= 1:
+        print("---- debug mode ----")
+        p = SimpleNamespace(
+                paraTXT = "../data/para.txt",
+                paraJSON = "../results/01_paraTemp.json",
+                propVol  = "../results/02_propVol.tif",
+                psfEreal = "../results/02_psfEreal.tif",
+                psfEimag = "../results/02_psfEimag.tif",
+                psfDreal = "../results/02_psfDreal.tif",
+                psfDimag = "../results/02_psfDimag.tif",
+                thetaVol = "../results/02_thetaVol.tif",
+                phiVol   = "../results/02_phiVol.tif",
+                scanPara = "../results/02_scanPara.json",
+                testW = "../results/03_testW_{idx}.txt"
+                #psfSys   = "../results/03_psfSys_{idx}.tif"
+             )
+        
+        # run functions
+        dc1 = ["loadPara", "--input", p.paraTXT, "--output", p.paraJSON]
+        dc2 = ["loadPadSampleVol", "--input", p.paraJSON, "--output", p.propVol]
+        dc3 = ["genExcPSF", "--input", p.paraJSON, "--output", p.psfEreal, p.psfEimag]
+        dc4 = ["genDetPSF", "--input", p.paraJSON, "--output", p.psfDreal, p.psfDimag]
+        dc5 = ["genAngleSpace", "--input", p.paraJSON, "--output", p.thetaVol, p.phiVol]
+        dc6 = ["genIDXs", "--input", p.paraJSON, "--output", p.scanPara]
+        #dc7 = ["testWildcard", "--input", p.paraJSON, p.scanPara, "--output", p.testW]
+        
+        args1 = parser.parse_args(dc1); args1.func(args1)
+        args2 = parser.parse_args(dc2); args2.func(args2)
+        args3 = parser.parse_args(dc3); args3.func(args3)
+        args4 = parser.parse_args(dc4); args4.func(args4)
+        args5 = parser.parse_args(dc5); args5.func(args5)
+        args6 = parser.parse_args(dc6); args6.func(args6)
+        #args7 = parser.parse_args(dc7); args7.func(args7)
+       
+        # fakes a loop thorugh pixel
+        with open(p.scanPara, 'r') as f:
+            jsScanDebug = json.load(f)
+        
+        for curIDX in range(jsScanDebug["idxMax"]):
+            print(f"--- Debugging Wildcard Index: {curIDX} ---")
+            current_output = p.testW.format(idx=curIDX)
+            dc_loop = ["testWildcard", "--input", p.paraJSON, p.scanPara, "--output", current_output]
+            args_loop = parser.parse_args(dc_loop); args_loop.func(args_loop)
+        
+    else: 
+        args = parser.parse_args(); args.func(args)
+ 
     
     # parser = argparse.ArgumentParser()
     # parser.add_argument("command", nargs="?")      
@@ -432,6 +501,9 @@ if __name__ == "__main__":
     # else: 
     #     print("----- debug modus -----")
     #     p = SimpleNamespace(
+            # paraTXT = "../data/para.txt",
+            # paraJSON = "../results/01_paraTemp.json",
+            # propVol  = "../results/02_propVol.tif",
     #         paraTXT  = r"C:\temp\snakemake\data\para.txt",
     #         paraJSON = r"C:\temp\snakemake\results\01_paraTemp.json",
     #         propVol  = r"C:\temp\snakemake\results\02_propVol.tif",
