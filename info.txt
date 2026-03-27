@@ -1,14 +1,8 @@
 ToDo:
-- propExc, add functionality
 - propExc, add 90 and 0deg
-- propExc, add plotting
-- propExc, wildcards
-- do for propDet as well
-- gensysPSF
-- check thorougly 
+- check thorougly, especially scan direction
 
 For later:
-- genSysPS
 - calcAngles
 - calcBrilloSpec 
 (- saveHist or other stuff in subfolder)
@@ -23,11 +17,21 @@ snakemake -s SnakefileAP --cores 1
 
 
 Laptop miniforge
+cd C:\Users\goerlitz\Documents\BrilloSnakeMake
 mamba activate snakemakeEnv
 
 
-issues: 
-1. temp() not working properly but if using snakemake --delete-temp-outputs it delets it -> hopefully just Windows accessing temp() file issue
+visalization:
+snakemake --cores 1 --dag mermaid-js > dag.md
+
+
+issues Francesco: 
+- temp() not working properly but if using snakemake --delete-temp-outputs it delets it -> hopefully just Windows accessing temp() file issue
+- print out somehow separate/ isolated .eg. print(f"----- psf sys generated idx={i} -----", flush=True) 
+- visualization of workflow (DAG) via mermaid or alternatives?
+
+issues General:
+- some wierd variables in varbiablemanager. These are from loaded libraries and should be in the Background -> Spyder consol: %reset -f
 
 #functions taking forever1:
 from scipy.ndimage import zoom

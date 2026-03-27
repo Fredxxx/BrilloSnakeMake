@@ -4,7 +4,7 @@ scatPath = 'C:\\Fred\\temp\\Tabea_mouseembryo_001_8bit_4x4x4bin.tif'
 mode = "GaussBeam" #"GaussSheet", "BesselBeam"
 
 optExc.N = 256
-optExc.d= 0.3 
+optExc.d= 0.25 
 optExc.NA = 0.4 #0.05
 optExc.n0 = 1.33
 optExc.lam = 0.532
@@ -13,12 +13,12 @@ optExc.besselNAout = 0.800
 
 optDet.NA = 0.8
 optDet.lam = 0.580
-optDet.angle = 00
+optDet.angle = 0 # 90 or 0 -> no other imput
 
 scanPara.xSteps = 2
 scanPara.ySteps = 2
 scanPara.zSteps = 1
-scanPara.xRange = 1024 # in pixels
+scanPara.xRange = 128 # in pixels
 
 optGen.Vs = 1490 * 10**6 #m/s 
 optGen.BSshiftA = 5 # GHz
@@ -28,6 +28,7 @@ optGen.BSspecEnd  = 7 # GHz
 optGen.BSspecRes = 0.01 # GHz
 
 # for advanced users and debugging
-adv.pad = 1 #padding array
+adv.pad = 3 #padding array
 adv.nOff = 1.33 # add to read loaded image
-adv.showImg = 0 # 0 - no plotting, 1- simple plotting, 2 - advanced plotting
+adv.showImg = 1 # 0 - no plotting, 1- simple plotting, 2 - advanced plotting
+adv.globalPlotScaling = [0, 0, 0.01, 0, 3.25] # [on/off, vMinReal, vMaxReal, vMinImag, vMaxImag] 

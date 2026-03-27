@@ -1,10 +1,10 @@
 import json
 
-def getScanIDX(wildcards):
+def getScanIDX(wildcards=None):
     cp = checkpoints.genIDXs.get().output.scanPara
     with open(cp, "r") as f:
         data = json.load(f)
-    return expand("results/03_testW_{idx}.txt", idx=data["idxVector"])
+    return data["idxVector"]
 
 rule all:
     input:
@@ -17,12 +17,13 @@ rule all:
         "results/02_thetaVol.tif",
         "results/02_phiVol.tif",
         "results/02_scanPara.json",
-        "results/03_I_psfErealScat.tif",
-        "results/03_I_psfEimagScat.tif",
-        "results/03_I_psfDrealScat.tif",
-        "results/03_I_psfDimagScat.tif",
-        "results/03_II_psSys.tif"
-        #getScanIDX
+        expand("results/03_I_psfErealScat_{idx}.tif", idx=getScanIDX),
+        expand("results/03_I_psfEimagScat_{idx}.tif", idx=getScanIDX),
+        expand("results/03_I_psfDrealScat_{idx}.tif", idx=getScanIDX),
+        expand("results/03_I_psfDimagScat_{idx}.tif", idx=getScanIDX),
+        expand("results/03_II_psfSysReal_{idx}.tif", idx=getScanIDX),
+        expand("results/03_II_psfSysImag_{idx}.tif", idx=getScanIDX),
+        expand("results/03_II_psSys_{idx}.tif", idx=getScanIDX)
 
 rule loadPara:
     input:
@@ -99,60 +100,68 @@ checkpoint genIDXs:
         --output {output.scanPara}
         """
 
-#rule testWildcard:
-#    input:
-#        paraJSON = "results/01_paraTemp.json",
-#        scanPara = "results/02_scanPara.json"
-#    output:
-#        testW = "results/03_testW_{idx}.txt"
-#    shell:
-#        """
-#        python scripts/fun.py testWildcard \
-#        --input {input.paraJSON} {input.scanPara}\
-#        --output {output.testW}
-#        """
-
 rule propExcVol:
     input:
         paraJSON = "results/01_paraTemp.json",
+        scanPara = "results/02_scanPara.json",
         inPSFreal = "results/02_psfEreal.tif",
-        inPSFimag = "results/02_psfEimag.tif" 
+        inPSFimag = "results/02_psfEimag.tif",
+        inPropVol = "results/02_propVol.tif"
     output:
-        outPSFreal = temp("results/03_I_psfErealScat.tif"),
-        outPSFimag = temp("results/03_I_psfEimagScat.tif")
+        outPSFreal = temp("results/03_I_psfErealScat_{idx}.tif"),
+        outPSFimag = temp("results/03_I_psfEimagScat_{idx}.tif")
     shell:
         """
         python scripts/fun.py propExcVol \
-        --input {input.paraJSON} {input.inPSFreal} {input.inPSFimag}\
+        --input {input.paraJSON} {input.scanPara} {input.inPSFreal} {input.inPSFimag} {input.inPropVol}\
         --output {output.outPSFreal} {output.outPSFimag}
         """
 
 rule propDetVol:
     input:
+        paraJSON = "results/01_paraTemp.json",
+        scanPara = "results/02_scanPara.json",
         inPSFreal = "results/02_psfDreal.tif",
-        inPSFimag = "results/02_psfDimag.tif" 
+        inPSFimag = "results/02_psfDimag.tif",
+        inPropVol = "results/02_propVol.tif"
     output:
-        outPSFreal = temp("results/03_I_psfDrealScat.tif"),
-        outPSFimag = temp("results/03_I_psfDimagScat.tif")
+        outPSFreal = temp("results/03_I_psfDrealScat_{idx}.tif"),
+        outPSFimag = temp("results/03_I_psfDimagScat_{idx}.tif")
     shell:
         """
         python scripts/fun.py propDetVol \
-        --input {input.inPSFreal} {input.inPSFimag}\
+        --input {input.paraJSON} {input.scanPara} {input.inPSFreal} {input.inPSFimag} {input.inPropVol}\
         --output {output.outPSFreal} {output.outPSFimag}
         """
 
-rule genPS:
+rule genSysPSF:
     input:
-        inPSFrealExc = "results/03_I_psfErealScat.tif",
-        inPSFimagExc = "results/03_I_psfEimagScat.tif", 
-        inPSFrealDet = "results/03_I_psfDrealScat.tif",
-        inPSFimagDet = "results/03_I_psfDimagScat.tif"
+        paraJSON = "results/01_paraTemp.json",
+        inPSFrealExc = "results/03_I_psfErealScat_{idx}.tif",
+        inPSFimagExc = "results/03_I_psfEimagScat_{idx}.tif", 
+        inPSFrealDet = "results/03_I_psfDrealScat_{idx}.tif",
+        inPSFimagDet = "results/03_I_psfDimagScat_{idx}.tif"
     output:
-        outPS = "results/03_II_psSys.tif"
+        psfSysReal = temp("results/03_II_psfSysReal_{idx}.tif"),
+        psfSysImag = temp("results/03_II_psfSysImag_{idx}.tif")
     shell:
         """
-        python scripts/fun.py genPS \
-        --input {input.inPSFrealExc} {input.inPSFimagExc} \
+        python scripts/fun.py genSysPSF \
+        --input {input.paraJSON} {input.inPSFrealExc} {input.inPSFimagExc} \
                 {input.inPSFrealDet} {input.inPSFimagDet}\
+        --output {output.psfSysReal} {output.psfSysImag}
+        """
+
+rule genSysPS:
+    input:
+        paraJSON = "results/01_paraTemp.json",
+        inPsfSysReal = "results/03_II_psfSysReal_{idx}.tif",
+        inPsfSysImag = "results/03_II_psfSysImag_{idx}.tif"
+    output:
+        outPS = temp("results/03_II_psSys_{idx}.tif")
+    shell:
+        """
+        python scripts/fun.py genSysPS \
+        --input {input.paraJSON} {input.inPsfSysReal} {input.inPsfSysImag} \
         --output {output.outPS}
         """
