@@ -1,9 +1,8 @@
 ToDo:
-- propExc, add 90 and 0deg
-- check thorougly, especially scan direction
+- calcAngels for sys, exc or det -> finish python Logik and test 
+- test upper in snakemake ob die temp dann nur für aktive modes blockiert werden
 
 For later:
-- calcAngles
 - calcBrilloSpec 
 (- saveHist or other stuff in subfolder)
 - make final images

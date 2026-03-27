@@ -13,7 +13,7 @@ optExc.besselNAout = 0.800
 
 optDet.NA = 0.8
 optDet.lam = 0.580
-optDet.angle = 0 # 90 or 0 -> no other imput
+optDet.angle = 90 # 90 or 0 -> no other imput
 
 scanPara.xSteps = 2
 scanPara.ySteps = 2
@@ -27,8 +27,15 @@ optGen.BSspecStart = 2 # GHz
 optGen.BSspecEnd  = 7 # GHz
 optGen.BSspecRes = 0.01 # GHz
 
+calc.fig = 1 # save figure of 2D histo (angles) and fits (0-true, 1-false)
+calc.sys = 1 # analysis for system power spectrum (0-true, 1-false)
+calc.exc = 0 # analysis for excitation power spectrum (0-true, 1-false)
+calc.det = 0 # analysis for detection power spectrum (0-true, 1-false)
+calc.theBins = [-180, 180, 901] # bins for theta histogram [start, end, steps]
+calc.phiBins = [0, 180, 451] # bins for Theta histogram [start, end, steps]
+
 # for advanced users and debugging
 adv.pad = 3 #padding array
 adv.nOff = 1.33 # add to read loaded image
-adv.showImg = 1 # 0 - no plotting, 1- simple plotting, 2 - advanced plotting
+adv.showImg = 0 # 0 - no plotting, 1- simple plotting, 2 - advanced plotting
 adv.globalPlotScaling = [0, 0, 0.01, 0, 3.25] # [on/off, vMinReal, vMaxReal, vMinImag, vMaxImag] 

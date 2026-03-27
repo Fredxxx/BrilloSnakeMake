@@ -9,7 +9,8 @@ import gc
 import tifffile as tiff
 import numpy as np
 from numpy.fft import fftn, fftshift, fftfreq
-from scipy.ndimage import zoom
+from scipy.ndimage import zoom, center_of_mass
+from scipy.optimize import curve_fit
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import configparser
 configparser.SafeConfigParser = configparser.ConfigParser
@@ -40,64 +41,6 @@ def genPaddArray(s, vol, pad):
     padded_scatVol[zt:zt+zl, yt:yt+yl, xt:xt+xl] = vol[zs:zs+zl, ys:ys+yl, xs:xs+xl]
     
     return padded_scatVol
-
-def plot_max_projections2(volume, voxel_size=(1.0, 1.0, 1.0), cmap='hot', title="Max Intensity Projections", space="real"):
-    """
-    Plottet Maximalprojektionen eines 3D-Volumes im Ortsraum (real) oder Frequenzraum (fft).
-    """
-    dz, dy, dx = voxel_size
-    Z, Y, X = volume.shape
-
-    # Logik für Einheiten und Skalierung
-    if space == "fft":
-        unit = "1/µm"
-        # Frequenzschritte berechnen (df = 1 / (N * dx))
-        dfz = 1.0 / (Z * dz)
-        dfy = 1.0 / (Y * dy)
-        dfx = 1.0 / (X * dx)
-        
-        # Extents für FFT (zentriert)
-        extent_xy = [-X//2 * dfx, X//2 * dfx, -Y//2 * dfy, Y//2 * dfy]
-        extent_xz = [-X//2 * dfx, X//2 * dfx, -Z//2 * dfz, Z//2 * dfz]
-        extent_yz = [-Y//2 * dfy, Y//2 * dfy, -Z//2 * dfz, Z//2 * dfz]
-    else:
-        unit = "µm"
-        extent_xy = [-X//2 * dx, X//2 * dx, -Y//2 * dy, Y//2 * dy]
-        extent_xz = [-X//2 * dx, X//2 * dx, -Z//2 * dz, Z//2 * dz]
-        extent_yz = [-Y//2 * dy, Y//2 * dy, -Z//2 * dz, Z//2 * dz]
-
-    # Max-Projektionen berechnen
-    max_xy = np.max(volume, axis=0)
-    max_xz = np.max(volume, axis=1)
-    max_yz = np.max(volume, axis=2)
-
-    # Plot erstellen
-    fig, axes = plt.subplots(1, 3, figsize=(15, 5))
-    fig.suptitle(f"{title} ({space.upper()} space)", fontsize=16)
-
-    # XY-Projektion
-    axes[0].imshow(max_xy, cmap=cmap, extent=extent_xy, origin='lower', aspect='auto')
-    axes[0].set_title('Z-Projection (XY)')
-    axes[0].set_xlabel(f'X ({unit})')
-    axes[0].set_ylabel(f'Y ({unit})')
-
-    # XZ-Projektion
-    axes[1].imshow(max_xz, cmap=cmap, extent=extent_xz, origin='lower', aspect='auto')
-    axes[1].set_title('Y-Projection (XZ)')
-    axes[1].set_xlabel(f'X ({unit})')
-    axes[1].set_ylabel(f'Z ({unit})')
-
-    # YZ-Projektion
-    axes[2].imshow(max_yz, cmap=cmap, extent=extent_yz, origin='lower', aspect='auto')
-    axes[2].set_title('X-Projection (YZ)')
-    axes[2].set_xlabel(f'Y ({unit})')
-    axes[2].set_ylabel(f'Z ({unit})')
-
-    #fig.colorbar(axes[2].images[0], ax=axes.ravel().tolist(), fraction=0.046, pad=0.04, aspect=20)
-    plt.tight_layout(rect=[0, 0, 0.9, 1])
-
-    #plt.tight_layout(rect=[0, 0, 1, 0.95])
-    return fig, axes
 
 def plot_max_projections(volume, voxel_size=(1.0, 1.0, 1.0), cmap='hot',
                          title="Max Intensity Projections", space="real",
@@ -168,7 +111,6 @@ def plot_max_projections(volume, voxel_size=(1.0, 1.0, 1.0), cmap='hot',
     axes[2].set_ylabel(f'Z ({unit})')
 
     # Colorbar rechts neben das rechte Bild
-    from mpl_toolkits.axes_grid1 import make_axes_locatable
     divider = make_axes_locatable(axes[2])
     cax = divider.append_axes("right", size="5%", pad=0.05)
     fig.colorbar(im2, cax=cax)
@@ -184,7 +126,63 @@ def add_command(subParsers, name, func, parents=None):
 def fftcpuPS(psf):
     return np.abs(fftshift(fftn(psf)))**2
 
+def gauss(x, A, mu, sigma):
+    return A * np.exp(-(x - mu)**2 / (2 * sigma**2))
+
+def fitGauss(cent, proj):    
+    prop, pcov = curve_fit(gauss, cent, proj, p0=[proj.max(), cent[np.argmax(proj)], 5])
+    return prop, pcov
+
+def save_theta_phi_plot(hist, res, h, path, a):
+    
+    _, theMu, theSig = res.theFit
+    _, phiMu, phiSig = res.phiFit
+    
+    fig = plt.figure(figsize=(8, 8))
+
+    ax_main  = fig.add_axes([0.1, 0.1, 0.6, 0.6])
+    ax_top   = fig.add_axes([0.1, 0.72, 0.6, 0.18], sharex=ax_main)
+    ax_right = fig.add_axes([0.72, 0.1, 0.18, 0.6], sharey=ax_main)
+
+    # Main image
+    im = ax_main.imshow(
+        hist,
+        origin='lower',
+        extent=[
+            res.thetaBins[0] + a,
+            res.thetaBins[-1] + a,
+            res.phiBins[0] - a,
+            res.phiBins[-1] - a
+        ],
+        aspect='auto',
+        cmap='viridis'
+    )
+    ax_main.set_xlabel("Theta")
+    ax_main.set_ylabel("Phi")
+
+    # Top plot (theta projection)
+    ax_top.plot(h.theC + a, h.theProj, label="Proj Theta")
+    ax_top.plot(h.theC + a, gauss(h.theC, *res.theFit), 'r--', label="Gauss Fit")
+    ax_top.set_ylabel("Σ over Phi")
+    ax_top.legend()
+    ax_top.tick_params(labelbottom=False)
+    ax_top.text(0.05, 0.7, f"μ={theMu:.2f}, σ={theSig:.2f}", transform=ax_top.transAxes)
+
+    # Right plot (phi projection)
+    ax_right.plot(h.phiProj - a, h.phiC - a, label="Proj Phi")
+    ax_right.plot(gauss(h.phiC, *res.phiFit), h.phiC - a, 'r--', label="Gauss Fit")
+    ax_right.set_xlabel("Σ over Theta")
+    ax_right.legend()
+    ax_right.tick_params(labelleft=False)
+    ax_right.text(0.05, 0.7, f"μ={phiMu:.2f}, σ={phiSig:.2f}", transform=ax_right.transAxes)
+
+    # Save instead of show
+    fig.savefig(path, dpi=300, bbox_inches='tight', pad_inches=0.1)
+    plt.close(fig)
+
+
 #%% active functions -- which are called by snakemake
+
 def loadPara(args):
     inPath = args.input[0]
     outPath = args.output[0]
@@ -246,7 +244,6 @@ def loadPadSampleVol(args):
         plot_max_projections(scatVol, voxel_size=(js["optExc"]["N"],) * 3, cmap='hot', title="scatVol (loadPadSampleVol)", space="real")
     
     tiff.imwrite(outPath, scatVol)
-    #print(f"--- sample loaded: {js['scatPath']}", flush=True)
     print("----- sample loaded -----", flush=True)
 
 def genExcPSF(args):
@@ -446,16 +443,19 @@ def propExcVol(args):
     
     # propaget though medium
     t = proVol[sp["coo"][i][0]:sp["coo"][i][1], sp["coo"][i][2]:sp["coo"][i][3], sp["coo"][i][4]:sp["coo"][i][5]]
+    os.makedirs("results/deb", exist_ok=True)
+    tiff.imwrite(f"results/deb/propExc_t_{i}.tif", t) # xxx deb
     del proVol; gc.collect()
     t = bb.Bpm3d(dn=t, units = (js["optExc"]["d"],)*3, lam=js["optExc"]["lam"]/js["optExc"]["n0"])
     psfScat = t.propagate(u0 = psf[0,:,:]) 
-    del psf; gc.collect()
+    del psf, t; gc.collect()
     
     # rotate
     if js["optDet"]["angle"] == 0:
         psfScat = np.rot90(psfScat, k=1, axes=(1, 2))
     elif js["optDet"]["angle"] != 90:
         print("----- error propExcVol: optDet.angle only supported for 0 and 90. Continue with 0 case. -----", flush=True)
+    tiff.imwrite(f"results/deb/propExc_psfScat_{i}.tif", np.abs(psfScat)**2) # xxx deb
     
     # plotting
     if js["adv"]["showImg"] == 1:
@@ -496,21 +496,24 @@ def propDetVol(args):
     if js["optDet"]["angle"] == 0:
         t = proVol[sp["coo"][i][0]:sp["coo"][i][1], sp["coo"][i][2]:sp["coo"][i][3], sp["coo"][i][4]:sp["coo"][i][5]]
         del proVol; gc.collect()
+        tiff.imwrite(f"results/deb/propDet_t_{i}.tif", t) # xxx deb
         t = bb.Bpm3d(dn=t, units = (js["optExc"]["d"],)*3, lam=js["optDet"]["lam"]/js["optExc"]["n0"])
         psfScat = t.propagate(u0 = psf[0,:,:])
-        del psf; gc.collect()    
+        del psf, t; gc.collect()    
         psfScat = np.rot90(psfScat, k=1, axes=(1, 2))
     elif js["optDet"]["angle"] == 90:
         t = proVol[sp["coo"][i][0]:sp["coo"][i][1], sp["coo"][i][2]:sp["coo"][i][3], sp["coo"][i][4]:sp["coo"][i][5]]
         t = np.rot90(t, k=1, axes=(1, 2))
         del proVol; gc.collect()
+        tiff.imwrite(f"results/deb/propDet_t_{i}.tif", t) # xxx deb
         t = bb.Bpm3d(dn=t, units = (js["optExc"]["d"],)*3, lam=js["optDet"]["lam"]/js["optExc"]["n0"])
         psfScat = t.propagate(u0 = psf[0,:,:])
-        del psf; gc.collect() 
+        del psf, t; gc.collect() 
         psfScat = np.rot90(psfScat, k=3, axes=(1, 2)) # rotates 90 back (270°)
     else:
         print("----- error propExcVol: optDet.angle only supported for 0 and 90. Continue with 0 case. -----", flush=True)
-        
+    tiff.imwrite(f"results/deb/propDet_psfScat_{i}.tif", np.abs(psfScat)**2) # xxx deb
+    
     # plotting
     if js["adv"]["showImg"] == 1:
         plot_max_projections(np.abs(psfScat)**2, voxel_size=(js["optExc"]["N"],) * 3, cmap='hot', title="psf detection intensity (propExcVol)", space="real", globalPlotScaling=js["adv"]["globalPlotScaling"])
@@ -565,7 +568,8 @@ def genSysPSF(args):
 def genSysPS(args):
     # def args
     inPath = args.input[0]
-    inPSF = args.input[1]
+    inPSFreal = args.input[1]
+    inPSFimag = args.input[2]
     outPS = args.output[0]
     
     # load general parameters
@@ -574,10 +578,14 @@ def genSysPS(args):
     i = int(outPS.split("_")[-1].split(".")[0])
     
     # load volume
-    psf = tiff.imread(inPSF)
+    psfReal = tiff.imread(inPSFreal)
+    psfImag = tiff.imread(inPSFimag)
+    psf = psfReal + 1j*psfImag
+    del psfReal, psfImag; gc.collect()
     
     # calc power spectrum
     ps = fftcpuPS(psf)
+    tiff.imwrite(f"results/deb/genSysPS_ps_{i}.tif", ps) # xxx deb
     
     # plotting
     if js["adv"]["showImg"] == 1:
@@ -586,23 +594,136 @@ def genSysPS(args):
     # save
     tiff.imwrite(outPS, ps)
     print(f"----- ps sys generated idx={i} -----", flush=True)
-    
         
+def genHisto(args):
+    # def args
+    inPath = args.input[0]
+    
+    # load general parameters
+    with open(inPath, 'r') as f:
+        js = json.load(f)
+    
+    if js["calc"]["sys"] == 1:
+        genHistoCalc(args, 0)
+    elif js["calc"]["exc"] == 1:
+        genHistoCalc(args, 1)
+    elif js["calc"]["det"] == 1:
+        genHistoCalc(args, 2)
+
+def genHistoSys(args):
+    inPath = args.input[0]
+    if js["calc"]["sys"] == 1:
+        inSysPS = args.input[3]
+        ps = tiff.imread(inPS)  
+        genHistoCalc(args, ps)
+    
+def genHistoCalc(args, ps):        
+    # def args
+    inPath = args.input[0]
+    inThetaVol = args.input[1]
+    inPhiVol = args.input[2]
+    inSysPS = args.input[3]
+    inExcReal = args.input[4]
+    inExcImag = args.input[5]  
+    inExcReal = args.input[4]
+    inExcImag = args.input[5] 
+    outResAngle = args.output[0]
+    
+    # load general parameters
+    with open(inPath, 'r') as f:
+        js = json.load(f)
+    i = int(outResAngle.split("_")[-1].split(".")[0])
+    res = SimpleNamespace()
+    res.scatAng = SimpleNamespace()
+    h = SimpleNamespace()
+    
+    # load volume and bins
+    theta = tiff.imread(inThetaVol)
+    phi = tiff.imread(inPhiVol)
+    if mod == 0:
+        ps = tiff.imread(inPS)
+    elif mod ==1:
+        ps = 
+    theBins = np.linspace(*js["calc"]["theBins"])
+    phiBins = np.linspace(*js["calc"]["phiBins"])
+    
+    # volume to vector
+    thetaFlat = theta.ravel()
+    phiFlat = phi.ravel()
+    psFlat = ps.ravel()
+
+    # weighted histogram
+    hist_sum, _, _ = np.histogram2d(
+        thetaFlat, phiFlat, bins=[theBins, phiBins], weights=psFlat)
+
+    # counts per pixel
+    counts, _, _ = np.histogram2d(
+        thetaFlat, phiFlat, bins=[theBins, phiBins])
+
+    # pixel power normalised to pixel counts
+    with np.errstate(divide='ignore', invalid='ignore'):
+        res.hist = hist_sum / counts
+        res.hist[counts == 0] = 0
+    
+    # calc space center of mass
+    com = tuple(np.round(center_of_mass(ps)).astype(int))
+    res.scatAng.comPix = com
+    res.scatAng.comTheta = float(theta[com])
+    res.scatAng.comPhi = float(phi[com])
+    
+    #calc space variance
+    coords = np.indices(ps.shape).reshape(3, -1)
+    with np.errstate(divide='ignore', invalid='ignore'):
+        res.scatAng.varTheta = np.average((thetaFlat - theta[com])**2, weights=psFlat)
+        res.scatAng.varPhi   = np.average((phiFlat   - phi[com])**2,   weights=psFlat)
+        res.scatAng.varPixXYZ = np.average((coords.T - com)**2, axis=0, weights=psFlat)
+        res.scatAng.varPix = np.sqrt(np.sum(res.scatAng.varPixXYZ))
+
+    h.theC = 0.5 * (res.thetaBins[:-1] + res.thetaBins[1:])
+    h.phiC   = 0.5 * (res.phiBins[:-1] + res.phiBins[1:]) 
+    h.theProj = res.hist.T.sum(axis=0)
+    h.phiProj = res.hist.T.sum(axis=1)
+
+    res.theFit, _ = fitGauss(h.theC, h.theProj)
+    res.phiFit, _ = fitGauss(h.phiC, h.phiProj)
+    
+    # save
+    if js["calc"]["fig"] == 1:
+        path = f"../results/hist_{i}.tif"
+        save_theta_phi_plot(res, h, path, js["optDet"]["angle"])
+    os.makedirs(os.path.dirname(outResAngle), exist_ok=True)
+    with open(outResAngle, 'w') as f:
+        json.dump(res, f, indent=4)
+    print(f"----- angle histo generated idx={i} -----", flush=True)
+    
+def angles2Brillo(args):
+    # inJSON
+    # inResHisto_{idx} 
+    # outResHistoBS_{idx} (theta. and phi. to BS)  -> not temp 
+    print("angles2Brillo")
+
+def constImag(args):
+    # inJSON
+    # inScanPar
+    # outResHistoBS_{idx} 
+    # outImag (mullit dimensional)
+    print("constImag")
+
+    
 #%% main   
 if __name__ == "__main__":
-
-    # general io parser
+    
+    # io parser
     ioParser = argparse.ArgumentParser(add_help=False)
     ioParser.add_argument("--input", nargs="+", required=True)
     ioParser.add_argument("--output", nargs="+", required=True)
 
-    # mainparser
+    # function parser
     parser = argparse.ArgumentParser()
     parser.set_defaults(func=lambda args: parser.print_help())
-
-    subParsers = parser.add_subparsers(required=True)
     
-    # add subcommand - function
+    # add subparser to finction parser and commands -> function
+    subParsers = parser.add_subparsers(required=True)
     add_command(subParsers, "loadPara", loadPara, parents=[ioParser])
     add_command(subParsers, "loadPadSampleVol", loadPadSampleVol, parents=[ioParser])
     add_command(subParsers, "genExcPSF", genExcPSF, parents=[ioParser])
@@ -613,6 +734,7 @@ if __name__ == "__main__":
     add_command(subParsers, "propDetVol", propDetVol, parents=[ioParser])
     add_command(subParsers, "genSysPSF", genSysPSF, parents=[ioParser])
     add_command(subParsers, "genSysPS", genSysPS, parents=[ioParser])
+    add_command(subParsers, "genHisto", genHisto, parents=[ioParser])
     
     if len(sys.argv) <= 1:
         print("---- debug mode ----")
@@ -635,8 +757,8 @@ if __name__ == "__main__":
                 hDimagScat = "../results/03_I_psfDimagScat_0.tif",
                 psfSysReal = "../results/03_II_psfSysReal_0.tif",
                 psfSysImag = "../results/03_II_psfSysImag_0.tif",
-                psSys = "../results/03_II_psSys_0.tif"
-
+                psSys = "../results/03_II_psSys_0.tif",
+                resAngles = "../results/03_III_resAngles_0.tif"
              )
              
         # define in and out
@@ -650,7 +772,8 @@ if __name__ == "__main__":
         dc8 = ["propDetVol", "--input", p.paraJSON, p.scanPara, p.hDreal, p.hDimag, p.propVol, "--output", p.hDrealScat, p.hDimagScat]
         dc9 = ["genSysPSF", "--input", p.paraJSON, p.hErealScat, p.hEimagScat, p.hDrealScat, p.hDimagScat, "--output", p.psfSysReal, p.psfSysImag]
         dc10 = ["genSysPS", "--input", p.paraJSON, p.psfSysReal, p.psfSysImag, "--output", p.psSys]
-        
+        dc11 = ["genHisto", "--input", p.paraJSON, p.thetaVol, p.phiVol, p.psSys, p.hErealScat, p.hEimagScat, p.hDrealScat, p.hDimagScat, "--output", p.resAngles]
+                
         # run functions
         args1 = parser.parse_args(dc1); args1.func(args1)
         args2 = parser.parse_args(dc2); args2.func(args2)
@@ -662,6 +785,7 @@ if __name__ == "__main__":
         args8 = parser.parse_args(dc8); args8.func(args8)
         args9 = parser.parse_args(dc9); args9.func(args9)
         args10 = parser.parse_args(dc10); args10.func(args10)
+        args11 = parser.parse_args(dc11); args10.func(args11)        
         
         # time.sleep(1)
         # with open(p.paraJSON, 'r') as f:

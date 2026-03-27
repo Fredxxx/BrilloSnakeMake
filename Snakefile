@@ -1,10 +1,51 @@
 import json
 
-def getScanIDX(wildcards=None):
+def getScanIDX(wildcards):
     cp = checkpoints.genIDXs.get().output.scanPara
     with open(cp, "r") as f:
         data = json.load(f)
     return data["idxVector"]
+
+def getGenHistoInputs(wildcards):
+    """Return inputs for genHisto depending on mode and idx."""
+    with open("results/01_paraTemp.json") as f:
+        js = json.load(f)
+
+    mode = wildcards.mode
+    idx = wildcards.idx
+
+    # Prüfen, ob der Mode überhaupt aktiviert ist
+    if (mode == "sys" and js["calc"]["sys"] != 1) or \
+       (mode == "exc" and js["calc"]["exc"] != 1) or \
+       (mode == "det" and js["calc"]["det"] != 1):
+        # Kein Input → Mode ist inaktiv
+        return {}
+
+    # Grundinputs
+    inputs = {"paraJSON": "results/01_paraTemp.json"}
+
+    # Optionale Inputs abhängig vom Mode
+    if mode == "sys":
+        inputs["inPS"] = f"results/03_II_psSys_{idx}.tif"
+    elif mode == "exc":
+        inputs["inPSFreal"] = f"results/03_I_psfErealScat_{idx}.tif"
+        inputs["inPSFimag"] = f"results/03_I_psfEimagScat_{idx}.tif"
+    elif mode == "det":
+        inputs["inPSFrealDet"] = f"results/03_I_psfDrealScat_{idx}.tif"
+        inputs["inPSFimagDet"] = f"results/03_I_psfDimagScat_{idx}.tif"
+
+    return inputs
+
+with open("results/01_paraTemp.json") as f:
+    js = json.load(f)
+
+modes = []
+if js["calc"]["sys"] == 1:
+    modes.append("sys")
+if js["calc"]["exc"] == 1:
+    modes.append("exc")
+if js["calc"]["det"] == 1:
+    modes.append("det")
 
 rule all:
     input:
@@ -23,7 +64,8 @@ rule all:
         expand("results/03_I_psfDimagScat_{idx}.tif", idx=getScanIDX),
         expand("results/03_II_psfSysReal_{idx}.tif", idx=getScanIDX),
         expand("results/03_II_psfSysImag_{idx}.tif", idx=getScanIDX),
-        expand("results/03_II_psSys_{idx}.tif", idx=getScanIDX)
+        expand("results/03_II_psSys_{idx}.tif", idx=getScanIDX),
+        expand("results/03_III_resAngles_{mode}_{idx}.json", mode=["sys","exc","det"], idx=getScanIDX)
 
 rule loadPara:
     input:
@@ -164,4 +206,18 @@ rule genSysPS:
         python scripts/fun.py genSysPS \
         --input {input.paraJSON} {input.inPsfSysReal} {input.inPsfSysImag} \
         --output {output.outPS}
+        """
+
+rule genHisto:
+    input:
+        getGenHistoInputs
+    output:
+        outRes = temp("results/03_III_resAngles_{mode}_{idx}.json")
+    shell:
+        """
+        python scripts/fun.py genHisto \
+            --input {input.paraJSON} \
+            {input.get('inPS','')} {input.get('inPSFreal','')} {input.get('inPSFimag','')} \
+            {input.get('inPSFrealDet','')} {input.get('inPSFimagDet','')} \
+            --output {output.outRes}
         """
