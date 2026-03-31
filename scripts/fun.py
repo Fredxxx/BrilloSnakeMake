@@ -1,7 +1,6 @@
 import os
 import time
 import sys
-from types import SimpleNamespace
 import json
 import argparse
 import logging
@@ -133,7 +132,7 @@ def fitGauss(cent, proj):
     prop, pcov = curve_fit(gauss, cent, proj, p0=[proj.max(), cent[np.argmax(proj)], 5])
     return prop, pcov
 
-def save_theta_phi_plot(hist, res, h, path, a):
+def saveHistPlot(res, h, path, a):
     
     _, theMu, theSig = res.theFit
     _, phiMu, phiSig = res.phiFit
@@ -146,7 +145,7 @@ def save_theta_phi_plot(hist, res, h, path, a):
 
     # Main image
     im = ax_main.imshow(
-        hist,
+        res.hist,
         origin='lower',
         extent=[
             res.thetaBins[0] + a,
@@ -180,45 +179,13 @@ def save_theta_phi_plot(hist, res, h, path, a):
     fig.savefig(path, dpi=300, bbox_inches='tight', pad_inches=0.1)
     plt.close(fig)
 
+def deg2bs(js, deg):
+    q0 = (1/js["optDet"]["lam"])**2
+    f = q0 * js["brillo"]["Vs"]
+    return f*np.sin(np.deg2rad(deg)/2) * 10**-9
+
 
 #%% active functions -- which are called by snakemake
-
-def loadPara(args):
-    inPath = args.input[0]
-    outPath = args.output[0]
-    
-    optExc = SimpleNamespace()
-    optDet = SimpleNamespace()
-    optGen = SimpleNamespace()
-    adv = SimpleNamespace()
-    scanPara = SimpleNamespace()
-    context = {
-        "optExc": optExc,
-        "optDet": optDet,
-        "optGen": optGen,
-        "adv": adv,
-        "scanPara": scanPara
-    }
-    with open(inPath, 'r') as f:
-        dat = f.read()
-    
-    exec(dat, globals(), context)
-    
-    result = {
-        "mainPath": context.get("mainPath"),
-        "name": context.get("name"),
-        "scatPath": context.get("scatPath"),
-        "mode": context.get("mode"),
-        "optExc": vars(optExc), 
-        "optDet": vars(optDet),
-        "optGen": vars(optGen),
-        "adv": vars(adv),
-        "scanPara": vars(scanPara),
-    }
-    os.makedirs(os.path.dirname(outPath), exist_ok=True)
-    with open(outPath, 'w') as f:
-        json.dump(result, f, indent=4)
-    print("----- para loaded -----", flush=True)
 
 def loadPadSampleVol(args):
     inPath = args.input[0]
@@ -444,7 +411,7 @@ def propExcVol(args):
     # propaget though medium
     t = proVol[sp["coo"][i][0]:sp["coo"][i][1], sp["coo"][i][2]:sp["coo"][i][3], sp["coo"][i][4]:sp["coo"][i][5]]
     os.makedirs("results/deb", exist_ok=True)
-    tiff.imwrite(f"results/deb/propExc_t_{i}.tif", t) # xxx deb
+    #tiff.imwrite(f"results/deb/propExc_t_{i}.tif", t) # xxx deb
     del proVol; gc.collect()
     t = bb.Bpm3d(dn=t, units = (js["optExc"]["d"],)*3, lam=js["optExc"]["lam"]/js["optExc"]["n0"])
     psfScat = t.propagate(u0 = psf[0,:,:]) 
@@ -455,7 +422,7 @@ def propExcVol(args):
         psfScat = np.rot90(psfScat, k=1, axes=(1, 2))
     elif js["optDet"]["angle"] != 90:
         print("----- error propExcVol: optDet.angle only supported for 0 and 90. Continue with 0 case. -----", flush=True)
-    tiff.imwrite(f"results/deb/propExc_psfScat_{i}.tif", np.abs(psfScat)**2) # xxx deb
+    #tiff.imwrite(f"results/deb/propExc_psfScat_{i}.tif", np.abs(psfScat)**2) # xxx deb
     
     # plotting
     if js["adv"]["showImg"] == 1:
@@ -496,7 +463,7 @@ def propDetVol(args):
     if js["optDet"]["angle"] == 0:
         t = proVol[sp["coo"][i][0]:sp["coo"][i][1], sp["coo"][i][2]:sp["coo"][i][3], sp["coo"][i][4]:sp["coo"][i][5]]
         del proVol; gc.collect()
-        tiff.imwrite(f"results/deb/propDet_t_{i}.tif", t) # xxx deb
+        #tiff.imwrite(f"results/deb/propDet_t_{i}.tif", t) # xxx deb
         t = bb.Bpm3d(dn=t, units = (js["optExc"]["d"],)*3, lam=js["optDet"]["lam"]/js["optExc"]["n0"])
         psfScat = t.propagate(u0 = psf[0,:,:])
         del psf, t; gc.collect()    
@@ -505,14 +472,14 @@ def propDetVol(args):
         t = proVol[sp["coo"][i][0]:sp["coo"][i][1], sp["coo"][i][2]:sp["coo"][i][3], sp["coo"][i][4]:sp["coo"][i][5]]
         t = np.rot90(t, k=1, axes=(1, 2))
         del proVol; gc.collect()
-        tiff.imwrite(f"results/deb/propDet_t_{i}.tif", t) # xxx deb
+        #tiff.imwrite(f"results/deb/propDet_t_{i}.tif", t) # xxx deb
         t = bb.Bpm3d(dn=t, units = (js["optExc"]["d"],)*3, lam=js["optDet"]["lam"]/js["optExc"]["n0"])
         psfScat = t.propagate(u0 = psf[0,:,:])
         del psf, t; gc.collect() 
         psfScat = np.rot90(psfScat, k=3, axes=(1, 2)) # rotates 90 back (270°)
     else:
         print("----- error propExcVol: optDet.angle only supported for 0 and 90. Continue with 0 case. -----", flush=True)
-    tiff.imwrite(f"results/deb/propDet_psfScat_{i}.tif", np.abs(psfScat)**2) # xxx deb
+    #tiff.imwrite(f"results/deb/propDet_psfScat_{i}.tif", np.abs(psfScat)**2) # xxx deb
     
     # plotting
     if js["adv"]["showImg"] == 1:
@@ -585,7 +552,7 @@ def genSysPS(args):
     
     # calc power spectrum
     ps = fftcpuPS(psf)
-    tiff.imwrite(f"results/deb/genSysPS_ps_{i}.tif", ps) # xxx deb
+    #tiff.imwrite(f"results/deb/genSysPS_ps_{i}.tif", ps) # xxx deb
     
     # plotting
     if js["adv"]["showImg"] == 1:
@@ -604,46 +571,42 @@ def genHisto(args):
         js = json.load(f)
     
     if js["calc"]["sys"] == 1:
-        genHistoCalc(args, 0)
-    elif js["calc"]["exc"] == 1:
-        genHistoCalc(args, 1)
-    elif js["calc"]["det"] == 1:
-        genHistoCalc(args, 2)
-
-def genHistoSys(args):
-    inPath = args.input[0]
-    if js["calc"]["sys"] == 1:
         inSysPS = args.input[3]
-        ps = tiff.imread(inPS)  
-        genHistoCalc(args, ps)
-    
-def genHistoCalc(args, ps):        
+        ps = tiff.imread(inSysPS)
+        calcHisto(args, ps, "sys")
+    if js["calc"]["exc"] == 1:
+        inPSFreal = args.input[3]
+        inPSFimag = args.input[4]
+        psfReal = tiff.imread(inPSFreal)
+        psfImag = tiff.imread(inPSFimag)
+        psf = psfReal + 1j*psfImag
+        ps = fftcpuPS(psf)
+        calcHisto(args, ps, "exc")
+    if js["calc"]["det"] == 1:
+        psfReal = tiff.imread(args.input[3])
+        psfImag = tiff.imread(args.input[4])
+        psf = psfReal + 1j*psfImag
+        ps = fftcpuPS(psf)
+        calcHisto(args, ps, "det")
+  
+def calcHisto(args, ps, mode): 
+      
     # def args
     inPath = args.input[0]
     inThetaVol = args.input[1]
     inPhiVol = args.input[2]
-    inSysPS = args.input[3]
-    inExcReal = args.input[4]
-    inExcImag = args.input[5]  
-    inExcReal = args.input[4]
-    inExcImag = args.input[5] 
     outResAngle = args.output[0]
     
     # load general parameters
     with open(inPath, 'r') as f:
         js = json.load(f)
     i = int(outResAngle.split("_")[-1].split(".")[0])
-    res = SimpleNamespace()
-    res.scatAng = SimpleNamespace()
-    h = SimpleNamespace()
+    res = {}
+    h = {}
     
     # load volume and bins
     theta = tiff.imread(inThetaVol)
     phi = tiff.imread(inPhiVol)
-    if mod == 0:
-        ps = tiff.imread(inPS)
-    elif mod ==1:
-        ps = 
     theBins = np.linspace(*js["calc"]["theBins"])
     phiBins = np.linspace(*js["calc"]["phiBins"])
     
@@ -662,45 +625,83 @@ def genHistoCalc(args, ps):
 
     # pixel power normalised to pixel counts
     with np.errstate(divide='ignore', invalid='ignore'):
-        res.hist = hist_sum / counts
-        res.hist[counts == 0] = 0
+        hist = hist_sum / counts
+        hist[counts == 0] = 0
     
     # calc space center of mass
     com = tuple(np.round(center_of_mass(ps)).astype(int))
-    res.scatAng.comPix = com
-    res.scatAng.comTheta = float(theta[com])
-    res.scatAng.comPhi = float(phi[com])
+    res["ComPix"] = com
+    res["degComTheta"] = float(theta[com])
+    res["degComPhi"] = float(phi[com])
     
     #calc space variance
     coords = np.indices(ps.shape).reshape(3, -1)
     with np.errstate(divide='ignore', invalid='ignore'):
-        res.scatAng.varTheta = np.average((thetaFlat - theta[com])**2, weights=psFlat)
-        res.scatAng.varPhi   = np.average((phiFlat   - phi[com])**2,   weights=psFlat)
-        res.scatAng.varPixXYZ = np.average((coords.T - com)**2, axis=0, weights=psFlat)
-        res.scatAng.varPix = np.sqrt(np.sum(res.scatAng.varPixXYZ))
+        res["degVarTheta"] = np.average((thetaFlat - theta[com])**2, weights=psFlat)
+        res["degVarPhi"]   = np.average((phiFlat   - phi[com])**2,   weights=psFlat)
+        res["pixVarXYZ"] = np.average((coords.T - com)**2, axis=0, weights=psFlat)
+        res["pixVar"] = np.sqrt(np.sum(res["pixVarXYZ"]))
 
-    h.theC = 0.5 * (res.thetaBins[:-1] + res.thetaBins[1:])
-    h.phiC   = 0.5 * (res.phiBins[:-1] + res.phiBins[1:]) 
-    h.theProj = res.hist.T.sum(axis=0)
-    h.phiProj = res.hist.T.sum(axis=1)
+    h["theC"] = 0.5 * (theBins[:-1] + theBins[1:])
+    h["phiC"]   = 0.5 * (phiBins[:-1] + phiBins[1:]) 
+    h["theProj"] = hist.T.sum(axis=0)
+    h["phiProj"] = hist.T.sum(axis=1)
 
-    res.theFit, _ = fitGauss(h.theC, h.theProj)
-    res.phiFit, _ = fitGauss(h.phiC, h.phiProj)
-    
+    try:
+        res["degTheFit"], _ = fitGauss(h["theC"], h["theProj"])
+    except RuntimeError:  
+        print(f"-- Warning: Gauss fit did not converge for theta idx={i} mode={mode} --", flush=True)
+        res["degTheFit"] = None
+    try:    
+        res["degPhiFit"], _ = fitGauss(h["phiC"], h["phiProj"])
+    except RuntimeError:  
+        print(f"-- Warning: Gauss fit did not converge for phi idx={i} mode={mode} --", flush=True)
+        res["degPhiFit"] = None
+            
+    res["hist"] = hist
     # save
-    if js["calc"]["fig"] == 1:
-        path = f"../results/hist_{i}.tif"
-        save_theta_phi_plot(res, h, path, js["optDet"]["angle"])
+    if js["calc"]["fig"] == 1 and res["degTheFit"] is not None and res["degPhiFit"] is not None:
+        path = f"../results/hist_{mode}_{i}.tif"
+        saveHistPlot(res, h, path, js["optDet"]["angle"])
     os.makedirs(os.path.dirname(outResAngle), exist_ok=True)
     with open(outResAngle, 'w') as f:
-        json.dump(res, f, indent=4)
-    print(f"----- angle histo generated idx={i} -----", flush=True)
+        json.dump(res, f, indent=4, default=lambda o: o.tolist() if hasattr(o, "tolist") else o)
+    print(f"----- angle histo generated idx={i} mode={mode}-----", flush=True)
     
-def angles2Brillo(args):
-    # inJSON
-    # inResHisto_{idx} 
-    # outResHistoBS_{idx} (theta. and phi. to BS)  -> not temp 
-    print("angles2Brillo")
+def calcBrillo(args):
+    # def args
+    inPath = args.input[0]
+    inResDeg = args.input[1]
+    outResBS = args.output[0]
+    
+    # load general parameters
+    with open(inPath, 'r') as f:
+        js = json.load(f)
+    with open(inResDeg, 'r') as f:
+        res = json.load(f)
+        
+    parts = os.path.splitext(os.path.basename(outResBS))[0].split("_")
+    mode, i = parts[-2], int(parts[-1])
+
+    res["bsComTheta"] = deg2bs(js, res["degComTheta"])
+    res["bsComPhi"] = deg2bs(js, res["degComPhi"])
+    res["bsVarTheta"] = deg2bs(js, res["degVarTheta"])
+    if res["degTheFit"] is not None:
+        res["bsTheFit"] = [deg2bs(js, d) for d in res["degTheFit"]]
+    else:
+        res["bsTheFit"] = None
+    if res["degPhiFit"] is not None:
+        res["bsPhiFit"] = [deg2bs(js, d) for d in res["degPhiFit"]]
+    else:
+        res["bsPhiFit"] = None
+    
+    # move histo to end of json - only cosmetics when looking at json file directly
+    res["hist"] = res.pop("hist", None)
+    
+    with open(outResBS, 'w') as f:
+        #json.dump(res, f, indent=4)
+        json.dump(res, f, indent=4, default=lambda o: o.tolist() if hasattr(o, "tolist") else o)
+    print(f"----- converted to brillo spec idx={i} mode={mode}-----", flush=True)
 
 def constImag(args):
     # inJSON
@@ -708,9 +709,10 @@ def constImag(args):
     # outResHistoBS_{idx} 
     # outImag (mullit dimensional)
     print("constImag")
-
+    
     
 #%% main   
+
 if __name__ == "__main__":
     
     # io parser
@@ -724,7 +726,6 @@ if __name__ == "__main__":
     
     # add subparser to finction parser and commands -> function
     subParsers = parser.add_subparsers(required=True)
-    add_command(subParsers, "loadPara", loadPara, parents=[ioParser])
     add_command(subParsers, "loadPadSampleVol", loadPadSampleVol, parents=[ioParser])
     add_command(subParsers, "genExcPSF", genExcPSF, parents=[ioParser])
     add_command(subParsers, "genDetPSF", genDetPSF, parents=[ioParser])
@@ -735,57 +736,64 @@ if __name__ == "__main__":
     add_command(subParsers, "genSysPSF", genSysPSF, parents=[ioParser])
     add_command(subParsers, "genSysPS", genSysPS, parents=[ioParser])
     add_command(subParsers, "genHisto", genHisto, parents=[ioParser])
+    add_command(subParsers, "calcBrillo", calcBrillo, parents=[ioParser])
     
     if len(sys.argv) <= 1:
-        print("---- debug mode ----")
+        print("----- debug mode -----")
         
         # list of paths
-        p = SimpleNamespace(
-                paraTXT = "../data/para.txt",
-                paraJSON = "../results/01_paraTemp.json",
-                propVol  = "../results/02_propVol.tif",
-                hEreal = "../results/02_psfEreal.tif",
-                hEimag = "../results/02_psfEimag.tif",
-                hDreal = "../results/02_psfDreal.tif",
-                hDimag = "../results/02_psfDimag.tif",
-                thetaVol = "../results/02_thetaVol.tif",
-                phiVol   = "../results/02_phiVol.tif",
-                scanPara = "../results/02_scanPara.json",
-                hErealScat = "../results/03_I_psfErealScat_0.tif",
-                hEimagScat = "../results/03_I_psfEimagScat_0.tif",
-                hDrealScat = "../results/03_I_psfDrealScat_0.tif",
-                hDimagScat = "../results/03_I_psfDimagScat_0.tif",
-                psfSysReal = "../results/03_II_psfSysReal_0.tif",
-                psfSysImag = "../results/03_II_psfSysImag_0.tif",
-                psSys = "../results/03_II_psSys_0.tif",
-                resAngles = "../results/03_III_resAngles_0.tif"
-             )
+        p = {
+            "para": "../data/para.json",
+            "propVol": "../results/01_propVol.tif",
+            "hEreal": "../results/01_psfEreal.tif",
+            "hEimag": "../results/01_psfEimag.tif",
+            "hDreal": "../results/01_psfDreal.tif",
+            "hDimag": "../results/01_psfDimag.tif",
+            "thetaVol": "../results/01_thetaVol.tif",
+            "phiVol": "../results/01_phiVol.tif",
+            "scanPara": "../results/01_scanPara.json",
+            "hErealScat": "../results/02_psfErealScat_0.tif",
+            "hEimagScat": "../results/02_psfEimagScat_0.tif",
+            "hDrealScat": "../results/02_psfDrealScat_0.tif",
+            "hDimagScat": "../results/02_psfDimagScat_0.tif",
+            "psfSysReal": "../results/03_psfSysReal_0.tif",
+            "psfSysImag": "../results/03_psfSysImag_0.tif",
+            "psSys": "../results/03_psSys_0.tif",
+            "resDeg": "../results/04_resDeg_sys_0.json",
+            "resBS": "../results/04_resBS_sys_0.json"
+             }
              
         # define in and out
-        dc1 = ["loadPara", "--input", p.paraTXT, "--output", p.paraJSON]
-        dc2 = ["loadPadSampleVol", "--input", p.paraJSON, "--output", p.propVol]
-        dc3 = ["genExcPSF", "--input", p.paraJSON, "--output", p.hEreal, p.hEimag]
-        dc4 = ["genDetPSF", "--input", p.paraJSON, "--output", p.hDreal, p.hDimag]
-        dc5 = ["genAngleSpace", "--input", p.paraJSON, "--output", p.thetaVol, p.phiVol]
-        dc6 = ["genIDXs", "--input", p.paraJSON, "--output", p.scanPara]
-        dc7 = ["propExcVol", "--input", p.paraJSON, p.scanPara, p.hEreal, p.hEimag, p.propVol, "--output", p.hErealScat, p.hEimagScat]
-        dc8 = ["propDetVol", "--input", p.paraJSON, p.scanPara, p.hDreal, p.hDimag, p.propVol, "--output", p.hDrealScat, p.hDimagScat]
-        dc9 = ["genSysPSF", "--input", p.paraJSON, p.hErealScat, p.hEimagScat, p.hDrealScat, p.hDimagScat, "--output", p.psfSysReal, p.psfSysImag]
-        dc10 = ["genSysPS", "--input", p.paraJSON, p.psfSysReal, p.psfSysImag, "--output", p.psSys]
-        dc11 = ["genHisto", "--input", p.paraJSON, p.thetaVol, p.phiVol, p.psSys, p.hErealScat, p.hEimagScat, p.hDrealScat, p.hDimagScat, "--output", p.resAngles]
+        dc1 = ["loadPadSampleVol", "--input", p["para"], "--output", p["propVol"]]
+        dc2 = ["genExcPSF", "--input", p["para"], "--output", p["hEreal"], p["hEimag"]]
+        dc3 = ["genDetPSF", "--input", p["para"], "--output", p["hDreal"], p["hDimag"]]
+        dc4 = ["genAngleSpace", "--input", p["para"], "--output", p["thetaVol"], p["phiVol"]]
+        dc5 = ["genIDXs", "--input", p["para"], "--output", p["scanPara"]]
+        dc6 = ["propExcVol", "--input", p["para"], p["scanPara"], p["hEreal"],
+               p["hEimag"], p["propVol"], "--output", p["hErealScat"], p["hEimagScat"]]
+        dc7 = ["propDetVol", "--input", p["para"], p["scanPara"], p["hDreal"], 
+               p["hDimag"], p["propVol"], "--output", p["hDrealScat"], p["hDimagScat"]]
+        dc8 = ["genSysPSF", "--input", p["para"], p["hErealScat"], p["hEimagScat"], 
+               p["hDrealScat"], p["hDimagScat"], "--output", p["psfSysReal"], p["psfSysImag"]]
+        dc9 = ["genSysPS", "--input", p["para"], p["psfSysReal"], p["psfSysImag"], 
+                "--output", p["psSys"]]
+        dc10 = ["genHisto", "--input", p["para"], p["thetaVol"], p["phiVol"], 
+                p["psSys"], p["hErealScat"], p["hEimagScat"], p["hDrealScat"], p["hDimagScat"], 
+                "--output", p["resDeg"]]
+        dc11 = ["calcBrillo", "--input", p["para"], p["resDeg"], "--output", p["resBS"]]
                 
         # run functions
-        args1 = parser.parse_args(dc1); args1.func(args1)
-        args2 = parser.parse_args(dc2); args2.func(args2)
-        args3 = parser.parse_args(dc3); args3.func(args3)
-        args4 = parser.parse_args(dc4); args4.func(args4)
-        args5 = parser.parse_args(dc5); args5.func(args5)
-        args6 = parser.parse_args(dc6); args6.func(args6)
-        args7 = parser.parse_args(dc7); args7.func(args7)
-        args8 = parser.parse_args(dc8); args8.func(args8)
-        args9 = parser.parse_args(dc9); args9.func(args9)
-        args10 = parser.parse_args(dc10); args10.func(args10)
-        args11 = parser.parse_args(dc11); args10.func(args11)        
+        # args1 = parser.parse_args(dc1); args1.func(args1)
+        # args2 = parser.parse_args(dc2); args2.func(args2)
+        # args3 = parser.parse_args(dc3); args3.func(args3)
+        # args4 = parser.parse_args(dc4); args4.func(args4)
+        # args5 = parser.parse_args(dc5); args5.func(args5)
+        # args6 = parser.parse_args(dc6); args6.func(args6)
+        # args7 = parser.parse_args(dc7); args7.func(args7)
+        # args8 = parser.parse_args(dc8); args8.func(args8)
+        # args9 = parser.parse_args(dc9); args9.func(args9)
+        # args10 = parser.parse_args(dc10); args10.func(args10)
+        args11 = parser.parse_args(dc11); args11.func(args11)        
         
         # time.sleep(1)
         # with open(p.paraJSON, 'r') as f:
@@ -793,29 +801,5 @@ if __name__ == "__main__":
         
     else: 
         args = parser.parse_args(); args.func(args)
-
-
-# if __name__ == "__main__":
-#     # 01
-#     loadPara()
-#     snakemake = snakemakeDebug()
-#     with open(snakemake.input.paraJSON, 'r') as f:
-#         jsDebzg = json.load(f)
-    
-#     # 02 - parallel
-#     loadPadSampleVol()
-#     genExcPSF()
-#     genDetPSF()
-#     genAngleSpace()
-#     # 03 - for loop
-#     #xyScan()
-#     #shift vol - time consuming - rotations
-#     #genPSsys - time consuming - fft
-#     #map2Angle 
-#     #calcAngles
-#     #calcBrillo
-#     #saveHisto
-#     # 04 - generate results 
-    
     
     

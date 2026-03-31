@@ -1,9 +1,7 @@
 ToDo:
-- calcAngels for sys, exc or det -> finish python Logik and test 
-- test upper in snakemake ob die temp dann nur für aktive modes blockiert werden
+- snakemake runs for sys = 1 only, exc = 1 -> error 
 
 For later:
-- calcBrilloSpec 
 (- saveHist or other stuff in subfolder)
 - make final images
 
@@ -13,7 +11,7 @@ snakemakeEnv\Scripts\activate -> activate environment
 snakemake --cores 1 -> start file (snakemake -s Snakefile_01_02 --cores 1)
 
 snakemake -s SnakefileAP --cores 1
-
+snakemake --cores 1
 
 Laptop miniforge
 cd C:\Users\goerlitz\Documents\BrilloSnakeMake
