@@ -357,7 +357,10 @@ def genIDXs(args):
     zstepSize = 0 if zsteps == 1 else round(zrange / (zsteps - 1))
 
     # set scan coordinates
-    coordinate_sets = []
+    coorSets = []
+    xIdx = []
+    yIdx = []
+    zIdx = []
     for i in range(xsteps):
         start_x = round(sPad/2 - (sVol+xrange)/2) + i * xstepSize
         end_x = start_x + sVol
@@ -369,16 +372,19 @@ def genIDXs(args):
                 end_z = start_z + sVol
                 
                 coo = [start_y, end_y, start_x, end_x, start_z, end_z, ]
-                coordinate_sets.append(coo)
+                coorSets.append(coo)
+                xIdx.append(i)
+                yIdx.append(j)
+                zIdx.append(w)
 
     # constitute scanParas and save as json
     scanData = {
-        "idxMax": len(coordinate_sets),
-        "idxVector": list(range(len(coordinate_sets))),
-        "x": {"steps": xsteps, "range": xrange, "stepSize": xstepSize},
-        "y": {"steps": ysteps, "range": yrange, "stepSize": ystepSize},
-        "z": {"steps": zsteps, "range": zrange, "stepSize": zstepSize},
-        "coo": coordinate_sets
+        "idxMax": len(coorSets),
+        "idxVector": list(range(len(coorSets))),
+        "x": {"steps": xsteps, "range": xrange, "stepSize": xstepSize, "idx": xIdx},
+        "y": {"steps": ysteps, "range": yrange, "stepSize": ystepSize, "idx": yIdx},
+        "z": {"steps": zsteps, "range": zrange, "stepSize": zstepSize, "idx": zIdx},
+        "coo": coorSets
     }
     os.makedirs(os.path.dirname(outPath), exist_ok=True)
     with open(outPath, 'w') as f:
@@ -410,7 +416,7 @@ def propExcVol(args):
     
     # propaget though medium
     t = proVol[sp["coo"][i][0]:sp["coo"][i][1], sp["coo"][i][2]:sp["coo"][i][3], sp["coo"][i][4]:sp["coo"][i][5]]
-    os.makedirs("results/deb", exist_ok=True)
+    #os.makedirs("results/deb", exist_ok=True)
     #tiff.imwrite(f"results/deb/propExc_t_{i}.tif", t) # xxx deb
     del proVol; gc.collect()
     t = bb.Bpm3d(dn=t, units = (js["optExc"]["d"],)*3, lam=js["optExc"]["lam"]/js["optExc"]["n0"])
@@ -563,39 +569,31 @@ def genSysPS(args):
     print(f"----- ps sys generated idx={i} -----", flush=True)
         
 def genHisto(args):
-    # def args
-    inPath = args.input[0]
     
-    # load general parameters
-    with open(inPath, 'r') as f:
-        js = json.load(f)
-    
-    if js["calc"]["sys"] == 1:
+    # adjust input depending on mode
+    if args.mode == "sys":
         inSysPS = args.input[3]
         ps = tiff.imread(inSysPS)
-        calcHisto(args, ps, "sys")
-    if js["calc"]["exc"] == 1:
+        calcHisto(args, ps)
+    elif args.mode in ("exc", "det"):
         inPSFreal = args.input[3]
         inPSFimag = args.input[4]
         psfReal = tiff.imread(inPSFreal)
         psfImag = tiff.imread(inPSFimag)
         psf = psfReal + 1j*psfImag
         ps = fftcpuPS(psf)
-        calcHisto(args, ps, "exc")
-    if js["calc"]["det"] == 1:
-        psfReal = tiff.imread(args.input[3])
-        psfImag = tiff.imread(args.input[4])
-        psf = psfReal + 1j*psfImag
-        ps = fftcpuPS(psf)
-        calcHisto(args, ps, "det")
+        calcHisto(args, ps)
+    else:
+        raise ValueError("-- error in genHisto: This should not happen! --")
   
-def calcHisto(args, ps, mode): 
+def calcHisto(args, ps): 
       
     # def args
     inPath = args.input[0]
     inThetaVol = args.input[1]
     inPhiVol = args.input[2]
     outResAngle = args.output[0]
+    mode = args.mode
     
     # load general parameters
     with open(inPath, 'r') as f:
@@ -686,6 +684,7 @@ def calcBrillo(args):
     res["bsComTheta"] = deg2bs(js, res["degComTheta"])
     res["bsComPhi"] = deg2bs(js, res["degComPhi"])
     res["bsVarTheta"] = deg2bs(js, res["degVarTheta"])
+    res["bsVarPhi"] = deg2bs(js, res["degVarPhi"])
     if res["degTheFit"] is not None:
         res["bsTheFit"] = [deg2bs(js, d) for d in res["degTheFit"]]
     else:
@@ -699,20 +698,58 @@ def calcBrillo(args):
     res["hist"] = res.pop("hist", None)
     
     with open(outResBS, 'w') as f:
-        #json.dump(res, f, indent=4)
-        json.dump(res, f, indent=4, default=lambda o: o.tolist() if hasattr(o, "tolist") else o)
+        json.dump(res, f, indent=4)
     print(f"----- converted to brillo spec idx={i} mode={mode}-----", flush=True)
 
 def constImag(args):
-    # inJSON
-    # inScanPar
-    # outResHistoBS_{idx} 
-    # outImag (mullit dimensional)
-    print("constImag")
+    # def args
+    #inPath = args.input[0]
+    inScan = args.input[1]
+    inRes = args.input[2:]
+    outImg = args.output[0]
+    mode = args.mode
     
-    
-#%% main   
+    # # load general parameters
+    # with open(inPath, 'r') as f:
+    #     js = json.load(f)
+    # load scan parameters
+    with open(inScan, 'r') as f:
+        scan = json.load(f)
 
+    
+    os.makedirs(outImg, exist_ok=True)
+    
+    mL1 = ["degComTheta", "degComPhi", "degVarTheta", "degVarPhi", "bsComTheta", "bsComPhi", "bsVarTheta", "bsVarTheta", "pixVar"]
+    for m in mL1:
+        img = np.zeros((scan["x"]["steps"], scan["y"]["steps"], scan["z"]["steps"]), dtype=np.float32)
+        for i, p in enumerate(inRes):
+            with open(p, 'r') as f:
+                res = json.load(f)
+            img[scan["x"]["idx"][i], scan["y"]["idx"][i], scan["z"]["idx"][i]] = res[m]
+        pathOut = outImg + "/" + m + ".tif"    
+        tiff.imwrite(pathOut, img)
+    
+    mL2 = ["degTheFit", "bsTheFit"]
+    for m in mL2:
+        img = np.zeros((scan["x"]["steps"], scan["y"]["steps"], scan["z"]["steps"]), dtype=np.float32)
+        for i, p in enumerate(inRes):
+            with open(p, 'r') as f:
+                res = json.load(f)
+            img[scan["x"]["idx"][i], scan["y"]["idx"][i], scan["z"]["idx"][i]] = res[m][1]
+        pathOut = outImg + "/" + m + "_mu.tif"    
+        tiff.imwrite(pathOut, img)
+        
+    for m in mL2:
+        img = np.zeros((scan["x"]["steps"], scan["y"]["steps"], scan["z"]["steps"]), dtype=np.float32)
+        for i, p in enumerate(inRes):
+            with open(p, 'r') as f:
+                res = json.load(f)
+            img[scan["x"]["idx"][i], scan["y"]["idx"][i], scan["z"]["idx"][i]] = res[m][2]
+        pathOut = outImg + "/" + m + "_sig.tif"    
+        tiff.imwrite(pathOut, img)
+    print(f"----- constitute image mode={mode} -----", flush=True)
+    
+#%% main
 if __name__ == "__main__":
     
     # io parser
@@ -735,8 +772,9 @@ if __name__ == "__main__":
     add_command(subParsers, "propDetVol", propDetVol, parents=[ioParser])
     add_command(subParsers, "genSysPSF", genSysPSF, parents=[ioParser])
     add_command(subParsers, "genSysPS", genSysPS, parents=[ioParser])
-    add_command(subParsers, "genHisto", genHisto, parents=[ioParser])
+    add_command(subParsers, "genHisto", genHisto, parents=[ioParser]).add_argument("--mode", default="sys", choices=["sys","exc","det"])
     add_command(subParsers, "calcBrillo", calcBrillo, parents=[ioParser])
+    add_command(subParsers, "constImag", constImag, parents=[ioParser]).add_argument("--mode", default="sys", choices=["sys","exc","det"])
     
     if len(sys.argv) <= 1:
         print("----- debug mode -----")
@@ -760,7 +798,8 @@ if __name__ == "__main__":
             "psfSysImag": "../results/03_psfSysImag_0.tif",
             "psSys": "../results/03_psSys_0.tif",
             "resDeg": "../results/04_resDeg_sys_0.json",
-            "resBS": "../results/04_resBS_sys_0.json"
+            "resBS": "../results/04_resBS_sys_0.json",
+            "resDir": "../results/sys"
              }
              
         # define in and out
@@ -779,21 +818,23 @@ if __name__ == "__main__":
                 "--output", p["psSys"]]
         dc10 = ["genHisto", "--input", p["para"], p["thetaVol"], p["phiVol"], 
                 p["psSys"], p["hErealScat"], p["hEimagScat"], p["hDrealScat"], p["hDimagScat"], 
-                "--output", p["resDeg"]]
+                "--output", p["resDeg"], "--mode", "sys"]
         dc11 = ["calcBrillo", "--input", p["para"], p["resDeg"], "--output", p["resBS"]]
+        dc12 = ["constImag", "--input", p["para"],p["scanPara"], p["resBS"], "--output", p["resDir"], "--mode", "sys"]
                 
         # run functions
-        # args1 = parser.parse_args(dc1); args1.func(args1)
-        # args2 = parser.parse_args(dc2); args2.func(args2)
-        # args3 = parser.parse_args(dc3); args3.func(args3)
-        # args4 = parser.parse_args(dc4); args4.func(args4)
-        # args5 = parser.parse_args(dc5); args5.func(args5)
-        # args6 = parser.parse_args(dc6); args6.func(args6)
-        # args7 = parser.parse_args(dc7); args7.func(args7)
-        # args8 = parser.parse_args(dc8); args8.func(args8)
-        # args9 = parser.parse_args(dc9); args9.func(args9)
-        # args10 = parser.parse_args(dc10); args10.func(args10)
-        args11 = parser.parse_args(dc11); args11.func(args11)        
+        args1 = parser.parse_args(dc1); args1.func(args1)
+        args2 = parser.parse_args(dc2); args2.func(args2)
+        args3 = parser.parse_args(dc3); args3.func(args3)
+        args4 = parser.parse_args(dc4); args4.func(args4)
+        args5 = parser.parse_args(dc5); args5.func(args5)
+        args6 = parser.parse_args(dc6); args6.func(args6)
+        args7 = parser.parse_args(dc7); args7.func(args7)
+        args8 = parser.parse_args(dc8); args8.func(args8)
+        args9 = parser.parse_args(dc9); args9.func(args9)
+        args10 = parser.parse_args(dc10); args10.func(args10)
+        args11 = parser.parse_args(dc11); args11.func(args11)  
+        args12 = parser.parse_args(dc12); args12.func(args12) 
         
         # time.sleep(1)
         # with open(p.paraJSON, 'r') as f:

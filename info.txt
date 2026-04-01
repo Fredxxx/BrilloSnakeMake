@@ -1,9 +1,6 @@
 ToDo:
-- snakemake runs for sys = 1 only, exc = 1 -> error 
-
-For later:
-(- saveHist or other stuff in subfolder)
-- make final images
+- check RAM and vRAM for each rule, for different sys and incoherent and coherent imaging
+- implement incoherent and coherent imaging
 
 LapPC (cmd + pip?)
 cd C:\temp\snakemake -> go to folder

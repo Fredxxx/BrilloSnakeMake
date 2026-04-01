@@ -21,8 +21,8 @@
   },
   
   "scanPara": {
-    "xSteps": 2,
-    "ySteps": 2,
+    "xSteps": 8,
+    "ySteps": 8,
     "zSteps": 1,
     "xRange": 128
   },
@@ -39,7 +39,7 @@
   "calc": {
     "fig": 0,
     "sys": 1,
-    "exc": 0,
+    "exc": 1,
     "det": 0,
     "theBins": [-180, 180, 901],
     "phiBins": [0, 180, 451]
