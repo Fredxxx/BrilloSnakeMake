@@ -2,3 +2,4 @@ results/
 snakemakeEnv/
 xx_old/
 .snakemake/
+stuff/
