@@ -21,8 +21,8 @@
   },
   
   "scanPara": {
-    "xSteps": 8,
-    "ySteps": 8,
+    "xSteps": 3,
+    "ySteps": 3,
     "zSteps": 1,
     "xRange": 128
   },

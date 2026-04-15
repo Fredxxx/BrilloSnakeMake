@@ -1,35 +1,96 @@
-ToDo:
-- check RAM and vRAM for each rule, for different sys and incoherent and coherent imaging
-- implement incoherent and coherent imaging
-
-LapPC (cmd + pip?)
-cd C:\temp\snakemake -> go to folder
-snakemakeEnv\Scripts\activate -> activate environment
-snakemake --cores 1 -> start file (snakemake -s Snakefile_01_02 --cores 1)
-
-snakemake -s SnakefileAP --cores 1
-snakemake --cores 1
-
-Laptop miniforge
-cd C:\Users\goerlitz\Documents\BrilloSnakeMake
-mamba activate snakemakeEnv
+"ToDo":
+  1: "check RAM and vRAM for each rule, for different sys and incoherent and coherent imaging"
+  2: "implement incoherent and coherent Imaging"
+  3: "implement MTF"
 
 
-visalization:
-snakemake --cores 1 --dag mermaid-js > dag.md
+"Snakefile commands":
+  "LapPC (cmd + pip?)":
+	  "goToFolder": "cd C:/temp/snakemake -> go to folder"
+	  "activateEnv": "snakemakeEnv/Scripts/activate"
+	  "startSnakefile": "snakemake --cores 1" 
+	  "startSpecificSnakefiel": "snakemake -s Snakefile_01_02 --cores 1"
+
+  "Laptop miniforge":
+	  "goToFolder": "cd C:/Users/goerlitz/Documents/BrilloSnakeMake"
+	  "activateEnv": "mamba activate snakemakeEnv"
 
 
-issues Francesco: 
-- temp() not working properly but if using snakemake --delete-temp-outputs it delets it -> hopefully just Windows accessing temp() file issue
-- print out somehow separate/ isolated .eg. print(f"----- psf sys generated idx={i} -----", flush=True) 
-- visualization of workflow (DAG) via mermaid or alternatives?
+"Stuff":
+	"visualise": "snakemake --cores 1 --dag mermaid-js > dag.md"
 
-issues General:
-- some wierd variables in varbiablemanager. These are from loaded libraries and should be in the Background -> Spyder consol: %reset -f
 
-#functions taking forever1:
-from scipy.ndimage import zoom
-scatVol = zoom(scatVol, scale_factors, order=1)
+"issues":
+	"time consuming function 1": "from scipy.ndimage import zoom scatVol = zoom(scatVol, scale_factors, order=1)"
+	"time consuming function 2": "from numpy import rot90 from scipy.ndimage import rotate"
+	"odd variables": "some wierd variables in varbiablemanager. These are from loaded libraries and should be in the Background -> Spyder consol: %reset -f"
 
-from numpy import rot90
-from scipy.ndimage import rotate
+
+"issues for Francesco": 
+	"cluster":
+		"how to move data from windows with file strucutre?"
+		"test everything in home, then move to scratch (snakefile, data/* - nano ok, scripts/*)"
+		"test in home completed successfully?"
+		"cluster specifics input RAM and so on - debug?"
+		"how to edit files (snakefile, fun.py, para.json)"
+	"expand() local windows": 
+		"temp() not working properly"
+		"but if using snakemake --delete-temp-outputs it delets it"
+		"hopefully just Windows accessing temp() file issue - nope also on cluster"
+		 remove rule all inputs only last one #update snakemake 9.19.0 
+	"wildcards correctly used?": 
+		"idx": 
+			"dynamically loaded with function getMaxIDX()"
+			"feels odd to load that for every expand()!"
+			"do not understand checkpoint where, when, why?"
+			"more elegant way? wildcards are desinged for this or?"
+		"modes": 
+			"dynamical also changes amount of in/outputs"
+			"correctly implemented?"
+			"more elegant way using wildcards?"
+	"rule constImag":
+		"dynamic inputs -> follow up from modes issue"
+		"output not file sensitive only folder -> feels wrong"
+		".snakemake_timestamp, what is this?"
+		"is there a correct way to do this without defining every output?"
+		"move result JSONs into seperate folder or data -> is there a convention?"
+	"cosmetics":
+		"separate print out without all snakemake messages? Python only?"
+		"visualise workflow with mermaid?"
+
+"cluster":
+	"login":
+		"start power shell"
+		"ssh goerlitz@login2.cluster.embl.de"
+	"logout": "exit"
+	"basics":
+		"Home directory": 
+			"find home": "echo $HOME"
+			"go home": "cd ~", "cd %HOME"
+			"list home": "ls ~"
+		"scratch":
+			"go to scratch": "cd /scratch"
+			"make folder": "mkdir /scratch/goerlitz"
+	"make folder": "mkdir xy"
+	"look in folder": "ls -d */"
+	"remove stuff - recursive with subfolders and data": "rm -rf xy"
+	"pip upgrade": "pip install --upgrade pip"
+	"synch data on HPC": "rsync -avh /home/goerlitz/projectsHPC/BrilloSnakeMake/scripts/ /scratch/goerlitz/brilloSM/scripts/"
+	"python": 
+		"check version": "python --version"
+		"find available versions": "module avail python"
+		"switch to different version": "module load Python/3.12.3-GCCcore-13.3.0"
+	"pip":
+		"upgrade": "pip install --upgrade pip"
+	"environment": 
+		"make env": " python -m venv snakemakeEnv"
+		"activate env": "source snakemakeEnv/bin/activate", "source ~/projectsHPC/BrilloSnakeMake/snakemakeEnv/bin/activate"
+		"deactivate env": "deactivate"
+		"copy requirements.txt use cmd under Windows not HPC linux": scp "C:\Users\goerlitz\Documents\BrilloSnakeMake\*" goerlitz@login2.cluster.embl.de:~/projectsHPC/BrilloSnakeMake/
+		"install requirement": "pip install -r requirements.txt"
+		"install single lib": "pip install numpy"
+	"Snakemake":
+		"normal run": "snakemake --cores 1"
+		"dry run": "snakemake --cores 1 --dry-run"
+		"specific file run": "snakemake --snakefile Snakefile --cores 1"
+		"delete temp() files manually": "snakemake --delete-temp-output"

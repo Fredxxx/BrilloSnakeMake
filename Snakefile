@@ -1,10 +1,14 @@
 import json
 
 def getMaxIDX(wildcards):
-    cp = checkpoints.genIDXs.get().output.scanPara
-    with open(cp, "r") as f:
-        data = json.load(f)
-    return data["idxVector"]
+    #cp = checkpoints.genIDXs.get().output.scanPara
+    with open("data/para.json", "r") as f:
+        js = json.load(f)
+        idxMax = js["scanPara"]["xSteps"]*js["scanPara"]["xSteps"] # make logic from pipeline
+    return list(range(idxMax)) #pass List 
+    #with open(cp, "r") as f:
+    #    data = json.load(f)
+    #return data["idxVector"]
 
 with open("data/para.json", "r") as f:
     js = json.load(f)
@@ -21,22 +25,22 @@ print(f"[DEBUG] active modes: {modes}")
 
 rule all:
     input:
-        "results/01_propVol.tif",
-        "results/01_psfEreal.tif",
-        "results/01_psfEimag.tif",
-        "results/01_psfDreal.tif",
-        "results/01_psfDimag.tif",
-        "results/01_thetaVol.tif",
-        "results/01_phiVol.tif",
-        "results/01_scanPara.json",
-        expand("results/02_psfErealScat_{idx}.tif", idx=getMaxIDX),
-        expand("results/02_psfEimagScat_{idx}.tif", idx=getMaxIDX),
-        expand("results/02_psfDrealScat_{idx}.tif", idx=getMaxIDX),
-        expand("results/02_psfDimagScat_{idx}.tif", idx=getMaxIDX),
-        expand("results/03_psfSysReal_{idx}.tif", idx=getMaxIDX),
-        expand("results/03_psfSysImag_{idx}.tif", idx=getMaxIDX),
-        expand("results/03_psSys_{idx}.tif", idx=getMaxIDX),
-        expand("results/04_resDeg_{mode}_{idx}.json", mode=modes, idx=getMaxIDX),
+        #"results/01_propVol.tif",
+        #"results/01_excHreal.tif",
+        #"results/01_excHimag.tif",
+        #"results/01_detHreal.tif",
+        #"results/01_detHimag.tif",
+        #"results/01_thetaVol.tif",
+        #"results/01_phiVol.tif",
+        #"results/01_scanPara.json",
+        #expand("results/02_excHrealScat_{idx}.tif", idx=getMaxIDX),
+        #expand("results/02_excHimagScat_{idx}.tif", idx=getMaxIDX),
+        #expand("results/02_detHrealScat_{idx}.tif", idx=getMaxIDX),
+        #expand("results/02_detHimagScat_{idx}.tif", idx=getMaxIDX),
+        #expand("results/03_sysHReal_{idx}.tif", idx=getMaxIDX),
+        #expand("results/03_sysHImag_{idx}.tif", idx=getMaxIDX),
+        #expand("results/03_psSys_{idx}.tif", idx=getMaxIDX),
+        #expand("results/04_resDeg_{mode}_{idx}.json", mode=modes, idx=getMaxIDX),
         expand("results/04_resBS_{mode}_{idx}.json", mode=modes, idx=getMaxIDX),
         expand("results/fin_{mode}", mode=modes)
         #*[expand("results/04_resDeg_{mode}_{idx}.json", mode=modes, idx=getMaxIDX) for m in modes],
@@ -55,30 +59,30 @@ rule loadPadSampleVol:
         --output {output.propVol}
         """
 
-rule genExcPSF:
+rule genExcField:
     input:
         para = "data/para.json" 
     output: 
-        psfEreal = "results/01_psfEreal.tif",
-        psfEimag = "results/01_psfEimag.tif"
+        excHreal = "results/01_excHreal.tif",
+        excHimag = "results/01_excHimag.tif"
     shell:
         """
-        python scripts/fun.py genExcPSF \
+        python scripts/fun.py genExcField \
         --input {input.para}  \
-        --output {output.psfEreal} {output.psfEimag} 
+        --output {output.excHreal} {output.excHimag} 
         """
 
-rule genDetPSF:
+rule genDetField:
     input:
         para = "data/para.json"
     output: 
-        psfDreal = "results/01_psfDreal.tif",
-        psfDimag = "results/01_psfDimag.tif"
+        detHreal = "results/01_detHreal.tif",
+        detHimag = "results/01_detHimag.tif"
     shell:
         """
-        python scripts/fun.py genDetPSF \
+        python scripts/fun.py genDetField \
         --input {input.para} \
-        --output {output.psfDreal} {output.psfDimag} 
+        --output {output.detHreal} {output.detHimag} 
         """
 
 rule genAngleSpace:
@@ -94,28 +98,30 @@ rule genAngleSpace:
         --output {output.thetaVol} {output.phiVol} 
         """
 
-checkpoint genIDXs:
-    input:
-        para = "data/para.json"
-    output:
-        scanPara = "results/01_scanPara.json"
-    shell:
-        """
-        python scripts/fun.py genIDXs \
-        --input {input.para} \
-        --output {output.scanPara}
-        """
+# move this logic to python internal 
+#rule genIDXs:
+#    input:
+#        para = "data/para.json"
+#    output:
+#        scanPara = "results/01_scanPara.json"
+#    shell:
+#        """
+#        python scripts/fun.py genIDXs \
+#        --input {input.para} \
+#        --output {output.scanPara}
+#        """
 
 rule propExcVol:
     input:
         para = "data/para.json",
-        scanPara = "results/01_scanPara.json",
-        inPSFreal = "results/01_psfEreal.tif",
-        inPSFimag = "results/01_psfEimag.tif",
+        #scanPara = "results/01_scanPara.json",
+        scanPara = "data/para.json",
+        inPSFreal = "results/01_excHreal.tif",
+        inPSFimag = "results/01_excHimag.tif",
         inPropVol = "results/01_propVol.tif"
     output:
-        outPSFreal = temp("results/02_psfErealScat_{idx}.tif"),
-        outPSFimag = temp("results/02_psfEimagScat_{idx}.tif")
+        outPSFreal = temp("results/02_excHrealScat_{idx}.tif"),
+        outPSFimag = temp("results/02_excHimagScat_{idx}.tif")
     shell:
         """
         python scripts/fun.py propExcVol \
@@ -126,13 +132,14 @@ rule propExcVol:
 rule propDetVol:
     input:
         para = "data/para.json",
-        scanPara = "results/01_scanPara.json",
-        inPSFreal = "results/01_psfDreal.tif",
-        inPSFimag = "results/01_psfDimag.tif",
+        #scanPara = "results/01_scanPara.json",
+        scanPara = "data/para.json",
+        inPSFreal = "results/01_detHreal.tif",
+        inPSFimag = "results/01_detHimag.tif",
         inPropVol = "results/01_propVol.tif"
     output:
-        outPSFreal = temp("results/02_psfDrealScat_{idx}.tif"),
-        outPSFimag = temp("results/02_psfDimagScat_{idx}.tif")
+        outPSFreal = temp("results/02_detHrealScat_{idx}.tif"),
+        outPSFimag = temp("results/02_detHimagScat_{idx}.tif")
     shell:
         """
         python scripts/fun.py propDetVol \
@@ -143,38 +150,36 @@ rule propDetVol:
 rule genSysPSF:
     input:
         para = "data/para.json",
-        inPSFrealExc = "results/02_psfErealScat_{idx}.tif",
-        inPSFimagExc = "results/02_psfEimagScat_{idx}.tif", 
-        inPSFrealDet = "results/02_psfDrealScat_{idx}.tif",
-        inPSFimagDet = "results/02_psfDimagScat_{idx}.tif"
+        inPSFrealExc = "results/02_excHrealScat_{idx}.tif",
+        inPSFimagExc = "results/02_excHimagScat_{idx}.tif", 
+        inPSFrealDet = "results/02_detHrealScat_{idx}.tif",
+        inPSFimagDet = "results/02_detHimagScat_{idx}.tif"
     output:
-        psfSysReal = temp("results/03_psfSysReal_{idx}.tif"),
-        psfSysImag = temp("results/03_psfSysImag_{idx}.tif")
+        sysHReal = temp("results/03_sysHReal_{idx}.tif"),
+        sysHImag = temp("results/03_sysHImag_{idx}.tif")
     shell:
         """
         python scripts/fun.py genSysPSF \
         --input {input.para} {input.inPSFrealExc} {input.inPSFimagExc} \
                 {input.inPSFrealDet} {input.inPSFimagDet}\
-        --output {output.psfSysReal} {output.psfSysImag}
+        --output {output.sysHReal} {output.sysHImag}
         """
 
 rule genSysPS:
     input:
         para = "data/para.json",
-        inPsfSysReal = "results/03_psfSysReal_{idx}.tif",
-        inPsfSysImag = "results/03_psfSysImag_{idx}.tif"
+        insysHReal = "results/03_sysHReal_{idx}.tif",
+        insysHImag = "results/03_sysHImag_{idx}.tif"
     output:
         outPS = temp("results/03_psSys_{idx}.tif")
     shell:
         """
         python scripts/fun.py genSysPS \
-        --input {input.para} {input.inPsfSysReal} {input.inPsfSysImag} \
+        --input {input.para} {input.insysHReal} {input.insysHImag} \
         --output {output.outPS}
         """
 
 def getGenHistoInputs(wildcards):
-    #with open("data/para.json", "r") as f:
-    #    js = json.load(f)
 
     mode = wildcards.mode
     idx = wildcards.idx
@@ -185,13 +190,13 @@ def getGenHistoInputs(wildcards):
         inputs.append(f"results/03_psSys_{idx}.tif")
     elif mode == "exc":
         inputs.extend([
-            f"results/02_psfErealScat_{idx}.tif",
-            f"results/02_psfEimagScat_{idx}.tif"
+            f"results/02_excHrealScat_{idx}.tif",
+            f"results/02_excHimagScat_{idx}.tif"
         ])
     elif mode == "det":
         inputs.extend([
-            f"results/02_psfDrealScat_{idx}.tif",
-            f"results/02_psfDimagScat_{idx}.tif"
+            f"results/02_detHrealScat_{idx}.tif",
+            f"results/02_detHimagScat_{idx}.tif"
         ])
 
     print(f"[DEBUG] genHisto inputs for mode={mode}, idx={idx}: {inputs}")
@@ -224,17 +229,20 @@ rule calcBrillo:
         --output {output.outRes}
         """
 
-
 def getCIinputs(wildcards):
     outs = expand("results/04_resBS_{mode}_{idx}.json", 
                    mode=wildcards.mode, 
                    idx=getMaxIDX(wildcards))
+                   #expand("results/04_resBS_{{mode}}_{idx}.json", 
+                   ##mode=wildcards.mode, 
+                   #idx=getMaxIDX(wildcards))
     return outs
 
 rule constImag:
     input:
         para = "data/para.json",
-        inScan = "results/01_scanPara.json",
+        #inScan = "results/01_scanPara.json",
+        inScan = "data/para.json",
         inRes = getCIinputs
     output:
         outRes = directory("results/fin_{mode}")

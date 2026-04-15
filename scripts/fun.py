@@ -1,9 +1,9 @@
 import os
-import time
+#import time
 import sys
 import json
 import argparse
-import logging
+#import logging
 import gc
 import tifffile as tiff
 import numpy as np
@@ -19,7 +19,7 @@ import matplotlib.pyplot as plt
 #%% helper functions --- not directly called by snakemake
 
 def genPaddArray(s, vol, pad):
-    
+    # 
     Z, Y, X = s * pad, s * pad, s
     #padded_scatVol = np.random.normal(1.33335, 0.00074, size=(Z, Y, X)).astype(np.float16)
     padded_scatVol = np.random.normal(1.3375, 0.0025, size=(Z, Y, X)).astype(np.float32)
@@ -91,13 +91,13 @@ def plot_max_projections(volume, voxel_size=(1.0, 1.0, 1.0), cmap='hot',
     fig, axes = plt.subplots(1, 3, figsize=(15, 5))
     fig.suptitle(f"{title} ({space.upper()} space)", fontsize=16)
 
-    im0 = axes[0].imshow(max_xy, cmap=cmap, extent=extent_xy, origin='lower',
+    _ = axes[0].imshow(max_xy, cmap=cmap, extent=extent_xy, origin='lower',
                          aspect='auto', vmin=vmin, vmax=vmax)
     axes[0].set_title('Z-Projection (XY)')
     axes[0].set_xlabel(f'X ({unit})')
     axes[0].set_ylabel(f'Y ({unit})')
 
-    im1 = axes[1].imshow(max_xz, cmap=cmap, extent=extent_xz, origin='lower',
+    _ = axes[1].imshow(max_xz, cmap=cmap, extent=extent_xz, origin='lower',
                          aspect='auto', vmin=vmin, vmax=vmax)
     axes[1].set_title('Y-Projection (XZ)')
     axes[1].set_xlabel(f'X ({unit})')
@@ -144,7 +144,7 @@ def saveHistPlot(res, h, path, a):
     ax_right = fig.add_axes([0.72, 0.1, 0.18, 0.6], sharey=ax_main)
 
     # Main image
-    im = ax_main.imshow(
+    _ = ax_main.imshow(
         res.hist,
         origin='lower',
         extent=[
@@ -184,163 +184,7 @@ def deg2bs(js, deg):
     f = q0 * js["brillo"]["Vs"]
     return f*np.sin(np.deg2rad(deg)/2) * 10**-9
 
-
-#%% active functions -- which are called by snakemake
-
-def loadPadSampleVol(args):
-    inPath = args.input[0]
-    outPath = args.output[0]
-    
-    # load image, swap axis, zoom and pad
-    with open(inPath, 'r') as f:
-        js = json.load(f)
-    #print(js)
-    scatVol = tiff.imread(js["scatPath"])/10000 + js["adv"]["nOff"]
-    scatVol = np.swapaxes(scatVol, 0, 2)
-    #sf = 0.23/js["optExc"]["d"]
-    sf = 0.23*4//js["optExc"]["d"]
-    scale_factors = (sf, sf, 4*sf)
-    scatVol = zoom(scatVol, scale_factors, order=1)  # order=1 = linear interpolation
-    
-    if js["adv"]["showImg"] == 2:
-        plot_max_projections(scatVol, voxel_size=(js["optExc"]["N"],) * 3, cmap='hot', title="scatVol (loadPadSampleVol)", space="real")
-        
-    scatVol = genPaddArray(js["optExc"]["N"], scatVol, js["adv"]["pad"]) 
-    
-    if js["adv"]["showImg"] in [1, 2]:
-        plot_max_projections(scatVol, voxel_size=(js["optExc"]["N"],) * 3, cmap='hot', title="scatVol (loadPadSampleVol)", space="real")
-    
-    tiff.imwrite(outPath, scatVol)
-    print("----- sample loaded -----", flush=True)
-
-def genExcPSF(args):
-    inPath = args.input[0]
-    outPreal = args.output[0]
-    outPimag = args.output[1]
-    
-    with open(inPath, 'r') as f:
-        js = json.load(f)
-    
-    if js["mode"] == "GaussBeam":
-        params = {
-            "shape": (js["optExc"]["N"],) * 3,
-            "units": (js["optExc"]["d"],) * 3,
-            "lam": js["optExc"]["lam"],
-            "NA": js["optExc"]["NA"],
-            "n0": js["optExc"]["n0"],
-            "return_all_fields": True,
-            "n_integration_steps": 100
-        }
-        _ , hE, _, _ = bb.focus_field_beam(**params)
-    elif js["mode"] == "BesselBeam":
-        params = {
-            "shape": (js["optExc"]["N"],) * 3,
-            "units": (js["optExc"]["d"],) * 3,
-            "lam": js["optExc"]["lam"],
-            "NA": [js["optExc"]["besselNAin"], js["optExc"]["besselNAout"]],
-            "n0": js["optExc"]["n0"],
-            "return_all_fields": True,
-            "n_integration_steps": 100
-        }
-        _ ,hE, _, _ = bb.focus_field_beam(**params)
-    elif js["mode"] == "GaussSheet":
-        params = {
-            "shape": (js["optExc"]["N"],) * 3,
-            "units": (js["optExc"]["d"],) * 3,
-            "lam": js["optExc"]["lam"],
-            "NA": js["optExc"]["NA"],
-            "n0": js["optExc"]["n0"],
-            "return_all_fields": True,
-            "n_integration_steps": 100
-        }
-        _ ,hE, _, _ = bb.focus_field_cylindrical(**params)
-    else:
-        hE = np.zeros((js["optExc"]["N"],) * 3)
-    
-    if js["adv"]["showImg"] == 1:
-        plot_max_projections(np.abs(hE)**2, voxel_size=(js["optExc"]["N"],) * 3, cmap='hot', title="psf excitation intensity (genExcPSF)", space="real", globalPlotScaling=js["adv"]["globalPlotScaling"])
-    elif js["adv"]["showImg"] == 2:
-        plot_max_projections(np.abs(hE)**2, voxel_size=(js["optExc"]["N"],) * 3, cmap='hot', title="psf excitation intensity (genExcPSF)", space="real", globalPlotScaling=js["adv"]["globalPlotScaling"])
-        plot_max_projections(np.angle(hE), voxel_size=(js["optExc"]["N"],) * 3, cmap='hot', title="psf excitation phase (genExcPSF)", space="ftt", globalPlotScaling=js["adv"]["globalPlotScaling"]) 
-        
-    # hE1 = hE.real.astype(np.float32) + 1j*hE.imag.astype(np.float32)
-    
-    # if js["adv"]["showImg"] == 1:
-    #     plot_max_projections(np.abs(hE1)**2, voxel_size=(js["optExc"]["N"],) * 3, cmap='hot', title="psf excitation intensity (genExcPSF)", space="real", globalPlotScaling=js["adv"]["globalPlotScaling"])
-    # elif js["adv"]["showImg"] == 2:
-    #     plot_max_projections(np.abs(hE1)**2, voxel_size=(js["optExc"]["N"],) * 3, cmap='hot', title="psf excitation intensity (genExcPSF)", space="real", globalPlotScaling=js["adv"]["globalPlotScaling"])
-    #     plot_max_projections(np.angle(hE1), voxel_size=(js["optExc"]["N"],) * 3, cmap='hot', title="psf excitation phase (genExcPSF)", space="ftt", globalPlotScaling=js["adv"]["globalPlotScaling"]) 
-        
-    tiff.imwrite(outPreal, hE.real.astype(np.float32))
-    tiff.imwrite(outPimag, hE.imag.astype(np.float32))
-    print("----- excitation PSF generated -----", flush=True) 
-
-def genDetPSF(args):  
-    inPath = args.input[0]
-    outPreal = args.output[0]
-    outPimag = args.output[1]
-    
-    with open(inPath, 'r') as f:
-        js = json.load(f)
-        
-    params = {
-        "shape": (js["optExc"]["N"],) * 3,
-        "units": (js["optExc"]["d"],) * 3,
-        "lam": js["optDet"]["lam"],
-        "NA": js["optDet"]["NA"],
-        "n0": js["optExc"]["n0"],
-        "return_all_fields": True,
-        "n_integration_steps": 100
-    }
-    _ ,hD, _, _ = bb.focus_field_beam(**params)
-    
-    if js["adv"]["showImg"] == 1:
-        plot_max_projections(np.abs(hD)**2, voxel_size=(js["optExc"]["N"],) * 3, cmap='hot', title="psf detection intensity (genDetPSF)", space="real", globalPlotScaling=js["adv"]["globalPlotScaling"])
-    elif js["adv"]["showImg"] == 2:
-        plot_max_projections(np.abs(hD)**2, voxel_size=(js["optExc"]["N"],) * 3, cmap='hot', title="psf detection intensity (genDetPSF)", space="real", globalPlotScaling=js["adv"]["globalPlotScaling"])
-        plot_max_projections(np.angle(hD), voxel_size=(js["optExc"]["N"],) * 3, cmap='hot', title="ps detection phase (genDetPSF)", space="ftt", globalPlotScaling=js["adv"]["globalPlotScaling"])   
-
-    tiff.imwrite(outPreal, hD.real.astype(np.float32))
-    tiff.imwrite(outPimag, hD.imag.astype(np.float32))
-    print("----- detection PSF generated -----", flush=True)
-
-def genAngleSpace(args):
-    # xxx --- could be further devided into phi an theta generation 
-    inPath = args.input[0]
-    outPtheta = args.output[0]
-    outPphi = args.output[1]
-    
-    with open(inPath, 'r') as f:
-        js = json.load(f)
-    
-    # define k space
-    kx = fftshift(fftfreq(js["optExc"]["N"], d=js["optExc"]["d"])) * 2 * np.pi
-    KZ, KY, KX = np.meshgrid(kx, kx, kx, indexing='ij')
-    k_mag = np.sqrt(KX**2 + KY**2 + KZ**2) + 1e-12  # avoid divide by 0
-    
-    #Theta - interesting angle - polar angle
-    theta = np.rad2deg(np.arccos(KZ / k_mag))  # polar angle
-    if js["adv"]["showImg"] in [1, 2]:
-        plot_max_projections(theta, voxel_size=(js["optExc"]["N"],) * 3, cmap='hot', title="theta vol (genAngleSpace)", space="real")
-    tiff.imwrite(outPtheta, theta.astype(np.float32))
-    del theta, KZ, k_mag
-    gc.collect()
-    
-    # Phi - less interesting (radial symmetric), azimutal
-    phi = np.rad2deg(np.arctan2(KY, KX))       # azimuthal angle
-    if js["adv"]["showImg"] == 2:
-        plot_max_projections(phi, voxel_size=(js["optExc"]["N"],) * 3, cmap='hot', title="theta vol (genAngleSpace)", space="real")
-    tiff.imwrite(outPphi, phi.imag.astype(np.float32))
-    
-    print("----- angle space generated -----", flush=True)
-    
-def genIDXs(args):
-    inPath = args.input[0]
-    outPath = args.output[0]
-    
-    with open(inPath, 'r') as f:
-        js = json.load(f)
-
+def genIDXs(js):
     sPad = js["optExc"]["N"]*js["adv"]["pad"]
     sVol = js["optExc"]["N"]
     
@@ -386,10 +230,218 @@ def genIDXs(args):
         "z": {"steps": zsteps, "range": zrange, "stepSize": zstepSize, "idx": zIdx},
         "coo": coorSets
     }
-    os.makedirs(os.path.dirname(outPath), exist_ok=True)
-    with open(outPath, 'w') as f:
-        json.dump(scanData, f, indent=4)
-    print("----- scan para prepared -----", flush=True)
+    return scanData
+
+#%% active functions -- which are called by snakemake
+
+def loadPadSampleVol(args):
+    
+    # def args
+    inPath = args.input[0]
+    outPath = args.output[0]
+    
+    # load general parameters
+    with open(inPath, 'r') as f:
+        js = json.load(f)
+        
+    # load image, swap axis, zoom
+    scatVol = tiff.imread(js["scatPath"])/10000 + js["adv"]["nOff"]
+    scatVol = np.swapaxes(scatVol, 0, 2)
+    #sf = 0.23/js["optExc"]["d"]
+    sf = 0.23*4//js["optExc"]["d"]
+    scale_factors = (sf, sf, 4*sf)
+    scatVol = zoom(scatVol, scale_factors, order=1)  # order=1 = linear interpolation
+    
+    # plot projections
+    if js["adv"]["showImg"] == 2:
+        plot_max_projections(scatVol, voxel_size=(js["optExc"]["N"],) * 3, cmap='hot', title="scatVol (loadPadSampleVol)", space="real")
+    
+    # pad array    
+    scatVol = genPaddArray(js["optExc"]["N"], scatVol, js["adv"]["pad"]) 
+    
+    # plot projections
+    if js["adv"]["showImg"] in [1, 2]:
+        plot_max_projections(scatVol, voxel_size=(js["optExc"]["N"],) * 3, cmap='hot', title="scatVol (loadPadSampleVol)", space="real")
+    
+    # save volume
+    tiff.imwrite(outPath, scatVol)
+    print("----- sample loaded -----", flush=True)
+
+def genExcField(args):
+    
+    # def args
+    inPath = args.input[0]
+    outHreal = args.output[0]
+    outHimag = args.output[1]
+    
+    # load general parameters
+    with open(inPath, 'r') as f:
+        js = json.load(f)
+    
+    # generate excitation E-field (GaussBeam, BesselBeam, GaussSheet)
+    if js["mode"] == "GaussBeam":
+        params = {
+            "shape": (js["optExc"]["N"],) * 3,
+            "units": (js["optExc"]["d"],) * 3,
+            "lam": js["optExc"]["lam"],
+            "NA": js["optExc"]["NA"],
+            "n0": js["optExc"]["n0"],
+            "return_all_fields": True,
+            "n_integration_steps": 100
+        }
+        _ , hE, _, _ = bb.focus_field_beam(**params)
+    elif js["mode"] == "BesselBeam":
+        params = {
+            "shape": (js["optExc"]["N"],) * 3,
+            "units": (js["optExc"]["d"],) * 3,
+            "lam": js["optExc"]["lam"],
+            "NA": [js["optExc"]["besselNAin"], js["optExc"]["besselNAout"]],
+            "n0": js["optExc"]["n0"],
+            "return_all_fields": True,
+            "n_integration_steps": 100
+        }
+        _ ,hE, _, _ = bb.focus_field_beam(**params)
+    elif js["mode"] == "GaussSheet":
+        params = {
+            "shape": (js["optExc"]["N"],) * 3,
+            "units": (js["optExc"]["d"],) * 3,
+            "lam": js["optExc"]["lam"],
+            "NA": js["optExc"]["NA"],
+            "n0": js["optExc"]["n0"],
+            "return_all_fields": True,
+            "n_integration_steps": 100
+        }
+        _ ,hE, _, _ = bb.focus_field_cylindrical(**params)
+    else:
+        hE = np.zeros((js["optExc"]["N"],) * 3)
+    
+    # plot excitation
+    if js["adv"]["showImg"] == 1:
+        plot_max_projections(np.abs(hE)**2, voxel_size=(js["optExc"]["N"],) * 3, cmap='hot', title="psf excitation intensity (genExcPSF)", space="real", globalPlotScaling=js["adv"]["globalPlotScaling"])
+    elif js["adv"]["showImg"] == 2:
+        plot_max_projections(np.abs(hE)**2, voxel_size=(js["optExc"]["N"],) * 3, cmap='hot', title="psf excitation intensity (genExcPSF)", space="real", globalPlotScaling=js["adv"]["globalPlotScaling"])
+        plot_max_projections(np.angle(hE), voxel_size=(js["optExc"]["N"],) * 3, cmap='hot', title="psf excitation phase (genExcPSF)", space="ftt", globalPlotScaling=js["adv"]["globalPlotScaling"]) 
+        
+    # save real and imag part of E-field
+    tiff.imwrite(outHreal, hE.real.astype(np.float32))
+    tiff.imwrite(outHimag, hE.imag.astype(np.float32))
+    print("----- excitation field generated -----", flush=True) 
+
+def genDetField(args):  
+    inPath = args.input[0]
+    outHreal = args.output[0]
+    outHimag = args.output[1]
+    
+    with open(inPath, 'r') as f:
+        js = json.load(f)
+        
+    params = {
+        "shape": (js["optExc"]["N"],) * 3,
+        "units": (js["optExc"]["d"],) * 3,
+        "lam": js["optDet"]["lam"],
+        "NA": js["optDet"]["NA"],
+        "n0": js["optExc"]["n0"],
+        "return_all_fields": True,
+        "n_integration_steps": 100
+    }
+    _ ,hD, _, _ = bb.focus_field_beam(**params)
+    
+    if js["adv"]["showImg"] == 1:
+        plot_max_projections(np.abs(hD)**2, voxel_size=(js["optExc"]["N"],) * 3, cmap='hot', title="psf detection intensity (genDetPSF)", space="real", globalPlotScaling=js["adv"]["globalPlotScaling"])
+    elif js["adv"]["showImg"] == 2:
+        plot_max_projections(np.abs(hD)**2, voxel_size=(js["optExc"]["N"],) * 3, cmap='hot', title="psf detection intensity (genDetPSF)", space="real", globalPlotScaling=js["adv"]["globalPlotScaling"])
+        plot_max_projections(np.angle(hD), voxel_size=(js["optExc"]["N"],) * 3, cmap='hot', title="ps detection phase (genDetPSF)", space="ftt", globalPlotScaling=js["adv"]["globalPlotScaling"])   
+
+    tiff.imwrite(outHreal, hD.real.astype(np.float32))
+    tiff.imwrite(outHimag, hD.imag.astype(np.float32))
+    print("----- detection field generated -----", flush=True)
+
+def genAngleSpace(args):
+    # xxx --- could be further devided into phi an theta generation 
+    inPath = args.input[0]
+    outPtheta = args.output[0]
+    outPphi = args.output[1]
+    
+    with open(inPath, 'r') as f:
+        js = json.load(f)
+    
+    # define k space
+    kx = fftshift(fftfreq(js["optExc"]["N"], d=js["optExc"]["d"])) * 2 * np.pi
+    KZ, KY, KX = np.meshgrid(kx, kx, kx, indexing='ij')
+    k_mag = np.sqrt(KX**2 + KY**2 + KZ**2) + 1e-12  # avoid divide by 0
+    
+    #Theta - interesting angle - polar angle
+    theta = np.rad2deg(np.arccos(KZ / k_mag))  # polar angle
+    if js["adv"]["showImg"] in [1, 2]:
+        plot_max_projections(theta, voxel_size=(js["optExc"]["N"],) * 3, cmap='hot', title="theta vol (genAngleSpace)", space="real")
+    tiff.imwrite(outPtheta, theta.astype(np.float32))
+    del theta, KZ, k_mag
+    gc.collect()
+    
+    # Phi - less interesting (radial symmetric), azimutal
+    phi = np.rad2deg(np.arctan2(KY, KX))       # azimuthal angle
+    if js["adv"]["showImg"] == 2:
+        plot_max_projections(phi, voxel_size=(js["optExc"]["N"],) * 3, cmap='hot', title="theta vol (genAngleSpace)", space="real")
+    tiff.imwrite(outPphi, phi.imag.astype(np.float32))
+    
+    print("----- angle space generated -----", flush=True)
+    
+# def genIDXs(args):
+#     inPath = args.input[0]
+#     outPath = args.output[0]
+    
+#     with open(inPath, 'r') as f:
+#         js = json.load(f)
+
+#     sPad = js["optExc"]["N"]*js["adv"]["pad"]
+#     sVol = js["optExc"]["N"]
+    
+#     xsteps = js["scanPara"]["xSteps"]
+#     xrange = js["scanPara"]["xRange"]
+#     ysteps = xsteps 
+#     yrange = xrange
+#     zsteps = 1
+#     zrange = xrange
+
+#     # calculate step size
+#     xstepSize = 0 if xsteps == 1 else round(xrange / (xsteps - 1))
+#     ystepSize = 0 if ysteps == 1 else round(yrange / (ysteps - 1))
+#     zstepSize = 0 if zsteps == 1 else round(zrange / (zsteps - 1))
+
+#     # set scan coordinates
+#     coorSets = []
+#     xIdx = []
+#     yIdx = []
+#     zIdx = []
+#     for i in range(xsteps):
+#         start_x = round(sPad/2 - (sVol+xrange)/2) + i * xstepSize
+#         end_x = start_x + sVol
+#         for j in range(ysteps):
+#             start_y = round(sPad/2 - (sVol+yrange)/2) + j * ystepSize
+#             end_y = start_y + sVol
+#             for w in range(zsteps):
+#                 start_z = 0 # xxx not sure but works
+#                 end_z = start_z + sVol
+                
+#                 coo = [start_y, end_y, start_x, end_x, start_z, end_z, ]
+#                 coorSets.append(coo)
+#                 xIdx.append(i)
+#                 yIdx.append(j)
+#                 zIdx.append(w)
+
+#     # constitute scanParas and save as json
+#     scanData = {
+#         "idxMax": len(coorSets),
+#         "idxVector": list(range(len(coorSets))),
+#         "x": {"steps": xsteps, "range": xrange, "stepSize": xstepSize, "idx": xIdx},
+#         "y": {"steps": ysteps, "range": yrange, "stepSize": ystepSize, "idx": yIdx},
+#         "z": {"steps": zsteps, "range": zrange, "stepSize": zstepSize, "idx": zIdx},
+#         "coo": coorSets
+#     }
+#     os.makedirs(os.path.dirname(outPath), exist_ok=True)
+#     with open(outPath, 'w') as f:
+#         json.dump(scanData, f, indent=4)
+#     print("----- scan para prepared -----", flush=True)
 
 def propExcVol(args):
     # def args
@@ -404,8 +456,9 @@ def propExcVol(args):
     # load general + scan parameters
     with open(inPath, 'r') as f:
         js = json.load(f)
-    with open(inScanPar, 'r') as f:
-        sp = json.load(f)
+    #with open(inScanPar, 'r') as f:
+    #    sp = json.load(f)
+    sp = genIDXs(js)
     i = int(outPSFreal.split("_")[-1].split(".")[0]) # identify idx    
         
     # load volumes and make complex field    
@@ -455,8 +508,9 @@ def propDetVol(args):
     # load general + scan parameters
     with open(inPath, 'r') as f:
         js = json.load(f)
-    with open(inScanPar, 'r') as f:
-        sp = json.load(f)
+    #with open(inScanPar, 'r') as f:
+    #    sp = json.load(f)
+    sp = genIDXs(js)
     i = int(outPSFreal.split("_")[-1].split(".")[0])
 
     # load volumes and make complex field     
@@ -515,27 +569,29 @@ def genSysPSF(args):
     i = int(outPSFreal.split("_")[-1].split(".")[0])
     
     # load volumes and make complex field (exciation)  
-    psfEreal = tiff.imread(inPSFrealExc)
-    psfEimag = tiff.imread(inPSFimagExc)
-    psfE = psfEreal + 1j*psfEimag
-    del psfEreal, psfEimag; gc.collect()
+    excHreal = tiff.imread(inPSFrealExc)
+    excHimag = tiff.imread(inPSFimagExc)
+    
+    excH = excHreal + 1j*excHimag
+    del excHreal, excHimag; gc.collect()
     
     # load volumes and make complex field (detection)  
-    psfDreal = tiff.imread(inPSFrealDet)
-    psfDimag = tiff.imread(inPSFimagDet)
-    psfD = psfDreal + 1j*psfDimag
-    del psfDreal, psfDimag; gc.collect()
+    detHreal = tiff.imread(inPSFrealDet)
+    detHimag = tiff.imread(inPSFimagDet)
+    detH = detHreal + 1j*detHimag
+    del detHreal, detHimag; gc.collect()
     
+    # ToDo implement coherent, incoherent scattering here
     # gen system PSF 
-    psfSys = psfE * psfD
+    sysH = excH * detH
     
     # plotting
     if js["adv"]["showImg"] == 1:
-        plot_max_projections(np.abs(psfSys)**2, voxel_size=(js["optExc"]["N"],) * 3, cmap='hot', title="psf system intensity (genPS)", space="real", globalPlotScaling=js["adv"]["globalPlotScaling"])    
+        plot_max_projections(np.abs(sysH)**2, voxel_size=(js["optExc"]["N"],) * 3, cmap='hot', title="psf system intensity (genPS)", space="real", globalPlotScaling=js["adv"]["globalPlotScaling"])    
     
     # save 
-    tiff.imwrite(outPSFreal, psfSys.real.astype(np.float32))
-    tiff.imwrite(outPSFimag, psfSys.imag.astype(np.float32))
+    tiff.imwrite(outPSFreal, sysH.real.astype(np.float32))
+    tiff.imwrite(outPSFimag, sysH.imag.astype(np.float32))
     print(f"----- psf sys generated idx={i} -----", flush=True)
 
 def genSysPS(args):
@@ -553,6 +609,8 @@ def genSysPS(args):
     # load volume
     psfReal = tiff.imread(inPSFreal)
     psfImag = tiff.imread(inPSFimag)
+    
+    # ToDo implement OTF and MTF 
     psf = psfReal + 1j*psfImag
     del psfReal, psfImag; gc.collect()
     
@@ -703,8 +761,8 @@ def calcBrillo(args):
 
 def constImag(args):
     # def args
-    #inPath = args.input[0]
-    inScan = args.input[1]
+    inPath = args.input[0]
+    #inScan = args.input[1]
     inRes = args.input[2:]
     outImg = args.output[0]
     mode = args.mode
@@ -713,13 +771,15 @@ def constImag(args):
     # with open(inPath, 'r') as f:
     #     js = json.load(f)
     # load scan parameters
-    with open(inScan, 'r') as f:
-        scan = json.load(f)
+    #with open(inScan, 'r') as f:
+    #    scan = json.load(f)
+    scan = genIDXs(inPath)
 
     
     os.makedirs(outImg, exist_ok=True)
     
-    mL1 = ["degComTheta", "degComPhi", "degVarTheta", "degVarPhi", "bsComTheta", "bsComPhi", "bsVarTheta", "bsVarTheta", "pixVar"]
+    mL1 = ["degComTheta", "degComPhi", "degVarTheta", "degVarPhi", 
+           "bsComTheta", "bsComPhi", "bsVarTheta", "bsVarTheta", "pixVar"]
     for m in mL1:
         img = np.zeros((scan["x"]["steps"], scan["y"]["steps"], scan["z"]["steps"]), dtype=np.float32)
         for i, p in enumerate(inRes):
@@ -764,8 +824,8 @@ if __name__ == "__main__":
     # add subparser to finction parser and commands -> function
     subParsers = parser.add_subparsers(required=True)
     add_command(subParsers, "loadPadSampleVol", loadPadSampleVol, parents=[ioParser])
-    add_command(subParsers, "genExcPSF", genExcPSF, parents=[ioParser])
-    add_command(subParsers, "genDetPSF", genDetPSF, parents=[ioParser])
+    add_command(subParsers, "genExcField", genExcField, parents=[ioParser])
+    add_command(subParsers, "genDetField", genDetField, parents=[ioParser])
     add_command(subParsers, "genAngleSpace", genAngleSpace, parents=[ioParser])
     add_command(subParsers, "genIDXs", genIDXs, parents=[ioParser])
     add_command(subParsers, "propExcVol", propExcVol, parents=[ioParser])
@@ -783,19 +843,19 @@ if __name__ == "__main__":
         p = {
             "para": "../data/para.json",
             "propVol": "../results/01_propVol.tif",
-            "hEreal": "../results/01_psfEreal.tif",
-            "hEimag": "../results/01_psfEimag.tif",
-            "hDreal": "../results/01_psfDreal.tif",
-            "hDimag": "../results/01_psfDimag.tif",
+            "hEreal": "../results/01_excHreal.tif",
+            "hEimag": "../results/01_excHimag.tif",
+            "hDreal": "../results/01_detHreal.tif",
+            "hDimag": "../results/01_detHimag.tif",
             "thetaVol": "../results/01_thetaVol.tif",
             "phiVol": "../results/01_phiVol.tif",
             "scanPara": "../results/01_scanPara.json",
-            "hErealScat": "../results/02_psfErealScat_0.tif",
-            "hEimagScat": "../results/02_psfEimagScat_0.tif",
-            "hDrealScat": "../results/02_psfDrealScat_0.tif",
-            "hDimagScat": "../results/02_psfDimagScat_0.tif",
-            "psfSysReal": "../results/03_psfSysReal_0.tif",
-            "psfSysImag": "../results/03_psfSysImag_0.tif",
+            "hErealScat": "../results/02_excHrealScat_0.tif",
+            "hEimagScat": "../results/02_excHimagScat_0.tif",
+            "hDrealScat": "../results/02_detHrealScat_0.tif",
+            "hDimagScat": "../results/02_detHimagScat_0.tif",
+            "sysHReal": "../results/03_sysHReal_0.tif",
+            "sysHImag": "../results/03_sysHImag_0.tif",
             "psSys": "../results/03_psSys_0.tif",
             "resDeg": "../results/04_resDeg_sys_0.json",
             "resBS": "../results/04_resBS_sys_0.json",
@@ -804,8 +864,8 @@ if __name__ == "__main__":
              
         # define in and out
         dc1 = ["loadPadSampleVol", "--input", p["para"], "--output", p["propVol"]]
-        dc2 = ["genExcPSF", "--input", p["para"], "--output", p["hEreal"], p["hEimag"]]
-        dc3 = ["genDetPSF", "--input", p["para"], "--output", p["hDreal"], p["hDimag"]]
+        dc2 = ["genExcField", "--input", p["para"], "--output", p["hEreal"], p["hEimag"]]
+        dc3 = ["genDetField", "--input", p["para"], "--output", p["hDreal"], p["hDimag"]]
         dc4 = ["genAngleSpace", "--input", p["para"], "--output", p["thetaVol"], p["phiVol"]]
         dc5 = ["genIDXs", "--input", p["para"], "--output", p["scanPara"]]
         dc6 = ["propExcVol", "--input", p["para"], p["scanPara"], p["hEreal"],
@@ -813,8 +873,8 @@ if __name__ == "__main__":
         dc7 = ["propDetVol", "--input", p["para"], p["scanPara"], p["hDreal"], 
                p["hDimag"], p["propVol"], "--output", p["hDrealScat"], p["hDimagScat"]]
         dc8 = ["genSysPSF", "--input", p["para"], p["hErealScat"], p["hEimagScat"], 
-               p["hDrealScat"], p["hDimagScat"], "--output", p["psfSysReal"], p["psfSysImag"]]
-        dc9 = ["genSysPS", "--input", p["para"], p["psfSysReal"], p["psfSysImag"], 
+               p["hDrealScat"], p["hDimagScat"], "--output", p["sysHReal"], p["sysHImag"]]
+        dc9 = ["genSysPS", "--input", p["para"], p["sysHReal"], p["sysHImag"], 
                 "--output", p["psSys"]]
         dc10 = ["genHisto", "--input", p["para"], p["thetaVol"], p["phiVol"], 
                 p["psSys"], p["hErealScat"], p["hEimagScat"], p["hDrealScat"], p["hDimagScat"], 
@@ -835,10 +895,6 @@ if __name__ == "__main__":
         args10 = parser.parse_args(dc10); args10.func(args10)
         args11 = parser.parse_args(dc11); args11.func(args11)  
         args12 = parser.parse_args(dc12); args12.func(args12) 
-        
-        # time.sleep(1)
-        # with open(p.paraJSON, 'r') as f:
-        #      js = json.load(f)
         
     else: 
         args = parser.parse_args(); args.func(args)
