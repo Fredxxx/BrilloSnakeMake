@@ -1,4 +1,5 @@
 import os
+os.environ["CUDA_CACHE_DISABLE"] = "1"
 #import time
 import sys
 import json
@@ -385,79 +386,19 @@ def genAngleSpace(args):
     tiff.imwrite(outPphi, phi.imag.astype(np.float32))
     
     print("----- angle space generated -----", flush=True)
-    
-# def genIDXs(args):
-#     inPath = args.input[0]
-#     outPath = args.output[0]
-    
-#     with open(inPath, 'r') as f:
-#         js = json.load(f)
-
-#     sPad = js["optExc"]["N"]*js["adv"]["pad"]
-#     sVol = js["optExc"]["N"]
-    
-#     xsteps = js["scanPara"]["xSteps"]
-#     xrange = js["scanPara"]["xRange"]
-#     ysteps = xsteps 
-#     yrange = xrange
-#     zsteps = 1
-#     zrange = xrange
-
-#     # calculate step size
-#     xstepSize = 0 if xsteps == 1 else round(xrange / (xsteps - 1))
-#     ystepSize = 0 if ysteps == 1 else round(yrange / (ysteps - 1))
-#     zstepSize = 0 if zsteps == 1 else round(zrange / (zsteps - 1))
-
-#     # set scan coordinates
-#     coorSets = []
-#     xIdx = []
-#     yIdx = []
-#     zIdx = []
-#     for i in range(xsteps):
-#         start_x = round(sPad/2 - (sVol+xrange)/2) + i * xstepSize
-#         end_x = start_x + sVol
-#         for j in range(ysteps):
-#             start_y = round(sPad/2 - (sVol+yrange)/2) + j * ystepSize
-#             end_y = start_y + sVol
-#             for w in range(zsteps):
-#                 start_z = 0 # xxx not sure but works
-#                 end_z = start_z + sVol
-                
-#                 coo = [start_y, end_y, start_x, end_x, start_z, end_z, ]
-#                 coorSets.append(coo)
-#                 xIdx.append(i)
-#                 yIdx.append(j)
-#                 zIdx.append(w)
-
-#     # constitute scanParas and save as json
-#     scanData = {
-#         "idxMax": len(coorSets),
-#         "idxVector": list(range(len(coorSets))),
-#         "x": {"steps": xsteps, "range": xrange, "stepSize": xstepSize, "idx": xIdx},
-#         "y": {"steps": ysteps, "range": yrange, "stepSize": ystepSize, "idx": yIdx},
-#         "z": {"steps": zsteps, "range": zrange, "stepSize": zstepSize, "idx": zIdx},
-#         "coo": coorSets
-#     }
-#     os.makedirs(os.path.dirname(outPath), exist_ok=True)
-#     with open(outPath, 'w') as f:
-#         json.dump(scanData, f, indent=4)
-#     print("----- scan para prepared -----", flush=True)
 
 def propExcVol(args):
     # def args
     inPath = args.input[0]
-    inScanPar = args.input[1]
-    inPSFreal = args.input[2]
-    inPSFimag = args.input[3]
-    inPropVol = args.input[4]
+    inPSFreal = args.input[1]
+    inPSFimag = args.input[2]
+    inPropVol = args.input[3]
     outPSFreal = args.output[0]
     outPSFimag = args.output[1]
     
     # load general + scan parameters
     with open(inPath, 'r') as f:
         js = json.load(f)
-    #with open(inScanPar, 'r') as f:
-    #    sp = json.load(f)
     sp = genIDXs(js)
     i = int(outPSFreal.split("_")[-1].split(".")[0]) # identify idx    
         
@@ -498,18 +439,15 @@ def propExcVol(args):
 def propDetVol(args):
     # def args
     inPath = args.input[0]
-    inScanPar = args.input[1]
-    inPSFreal = args.input[2]
-    inPSFimag = args.input[3]
-    inPropVol = args.input[4]
+    inPSFreal = args.input[1]
+    inPSFimag = args.input[2]
+    inPropVol = args.input[3]
     outPSFreal = args.output[0]
     outPSFimag = args.output[1]
     
     # load general + scan parameters
     with open(inPath, 'r') as f:
         js = json.load(f)
-    #with open(inScanPar, 'r') as f:
-    #    sp = json.load(f)
     sp = genIDXs(js)
     i = int(outPSFreal.split("_")[-1].split(".")[0])
 
@@ -571,7 +509,6 @@ def genSysPSF(args):
     # load volumes and make complex field (exciation)  
     excHreal = tiff.imread(inPSFrealExc)
     excHimag = tiff.imread(inPSFimagExc)
-    
     excH = excHreal + 1j*excHimag
     del excHreal, excHimag; gc.collect()
     
@@ -583,16 +520,65 @@ def genSysPSF(args):
     
     # ToDo implement coherent, incoherent scattering here
     # gen system PSF 
-    sysH = excH * detH
-    
+    if js["adv"]["PS"] == 1:
+        sys = excH * detH
+    else:
+        sys = np.abs(excH)**2 * np.abs(detH)**2
+        
     # plotting
     if js["adv"]["showImg"] == 1:
-        plot_max_projections(np.abs(sysH)**2, voxel_size=(js["optExc"]["N"],) * 3, cmap='hot', title="psf system intensity (genPS)", space="real", globalPlotScaling=js["adv"]["globalPlotScaling"])    
+        plot_max_projections(np.abs(sys)**2, voxel_size=(js["optExc"]["N"],) * 3, cmap='hot', title="psf system intensity (genPS)", space="real", globalPlotScaling=js["adv"]["globalPlotScaling"])    
     
     # save 
-    tiff.imwrite(outPSFreal, sysH.real.astype(np.float32))
-    tiff.imwrite(outPSFimag, sysH.imag.astype(np.float32))
+    tiff.imwrite(outPSFreal, sys.real.astype(np.float32))
+    tiff.imwrite(outPSFimag, sys.imag.astype(np.float32))
     print(f"----- psf sys generated idx={i} -----", flush=True)
+
+def genSysField(args):
+    # def args
+    inPath = args.input[0]
+    inPSFrealExc = args.input[1]
+    inPSFimagExc = args.input[2]
+    inPSFrealDet = args.input[3]
+    inPSFimagDet = args.input[4]
+    outField = args.output[0]
+    mode = args.modes
+    
+    # load general parameters
+    with open(inPath, 'r') as f:
+        js = json.load(f)
+    i = int(outField.split("_")[-1].split(".")[0])
+    
+    # load volumes and make complex field (exciation)  
+    excHreal = tiff.imread(inPSFrealExc)
+    excHimag = tiff.imread(inPSFimagExc)
+    excH = excHreal + 1j*excHimag
+    del excHreal, excHimag; gc.collect()
+    
+    # load volumes and make complex field (detection)  
+    detHreal = tiff.imread(inPSFrealDet)
+    detHimag = tiff.imread(inPSFimagDet)
+    detH = detHreal + 1j*detHimag
+    del detHreal, detHimag; gc.collect()
+    
+    # ToDo implement coherent, incoherent scattering here
+    # gen system PSF 
+    if mode == "MTF":
+        sys = np.abs(fftcpuPS(np.abs(excH)**2 * np.abs(detH)**2))
+    elif mode == "PS":
+        sys = np.abs(fftcpuPS(excH * detH))**2
+    elif mode == "dodgyI":
+        sys = np.abs(fftcpuPS(np.abs(excH)**2 * np.abs(detH)**2))**2
+    else:
+        print("this should not have happend: genSysField")
+        
+    # plotting
+    if js["adv"]["showImg"] == 1:
+        plot_max_projections(np.abs(sys)**2, voxel_size=(js["optExc"]["N"],) * 3, cmap='hot', title="psf system intensity (genPS)", space="real", globalPlotScaling=js["adv"]["globalPlotScaling"])    
+    
+    # save 
+    tiff.imwrite(outField, sys)
+    print(f"----- sys field generated mode = {mode}, idx={i} -----", flush=True)
 
 def genSysPS(args):
     # def args
@@ -627,22 +613,26 @@ def genSysPS(args):
     print(f"----- ps sys generated idx={i} -----", flush=True)
         
 def genHisto(args):
-    
-    # adjust input depending on mode
-    if args.mode == "sys":
-        inSysPS = args.input[3]
-        ps = tiff.imread(inSysPS)
-        calcHisto(args, ps)
-    elif args.mode in ("exc", "det"):
-        inPSFreal = args.input[3]
-        inPSFimag = args.input[4]
-        psfReal = tiff.imread(inPSFreal)
-        psfImag = tiff.imread(inPSFimag)
-        psf = psfReal + 1j*psfImag
-        ps = fftcpuPS(psf)
-        calcHisto(args, ps)
-    else:
-        raise ValueError("-- error in genHisto: This should not happen! --")
+    inSysPS = args.input[3]
+    ps = tiff.imread(inSysPS)
+    calcHisto(args, ps)
+    # adjust input depending on field
+    # if args.field == "sys":
+    #     print("sys")
+    #     inSysPS = args.input[3]
+    #     ps = tiff.imread(inSysPS)
+    #     calcHisto(args, ps)
+    # elif args.field in ("exc", "det"):
+    #     print("excDet")
+    #     inPSFreal = args.input[3]
+    #     inPSFimag = args.input[4]
+    #     psfReal = tiff.imread(inPSFreal)
+    #     psfImag = tiff.imread(inPSFimag)
+    #     psf = psfReal + 1j*psfImag
+    #     ps = fftcpuPS(psf)
+    #     calcHisto(args, ps)
+    # else:
+    #     raise ValueError("-- error in genHisto: This should not happen! --")
   
 def calcHisto(args, ps): 
       
@@ -651,7 +641,7 @@ def calcHisto(args, ps):
     inThetaVol = args.input[1]
     inPhiVol = args.input[2]
     outResAngle = args.output[0]
-    mode = args.mode
+    field = args.field
     
     # load general parameters
     with open(inPath, 'r') as f:
@@ -706,23 +696,23 @@ def calcHisto(args, ps):
     try:
         res["degTheFit"], _ = fitGauss(h["theC"], h["theProj"])
     except RuntimeError:  
-        print(f"-- Warning: Gauss fit did not converge for theta idx={i} mode={mode} --", flush=True)
+        print(f"-- Warning: Gauss fit did not converge for theta idx={i} mode={field} --", flush=True)
         res["degTheFit"] = None
     try:    
         res["degPhiFit"], _ = fitGauss(h["phiC"], h["phiProj"])
     except RuntimeError:  
-        print(f"-- Warning: Gauss fit did not converge for phi idx={i} mode={mode} --", flush=True)
+        print(f"-- Warning: Gauss fit did not converge for phi idx={i} mode={field} --", flush=True)
         res["degPhiFit"] = None
             
     res["hist"] = hist
     # save
     if js["calc"]["fig"] == 1 and res["degTheFit"] is not None and res["degPhiFit"] is not None:
-        path = f"../results/hist_{mode}_{i}.tif"
+        path = f"../results/hist_{field}_{i}.tif"
         saveHistPlot(res, h, path, js["optDet"]["angle"])
     os.makedirs(os.path.dirname(outResAngle), exist_ok=True)
     with open(outResAngle, 'w') as f:
         json.dump(res, f, indent=4, default=lambda o: o.tolist() if hasattr(o, "tolist") else o)
-    print(f"----- angle histo generated idx={i} mode={mode}-----", flush=True)
+    print(f"----- angle histo generated idx={i} mode={field}-----", flush=True)
     
 def calcBrillo(args):
     # def args
@@ -762,24 +752,23 @@ def calcBrillo(args):
 def constImag(args):
     # def args
     inPath = args.input[0]
-    #inScan = args.input[1]
-    inRes = args.input[2:]
+    inRes = args.input[1:]
     outImg = args.output[0]
-    mode = args.mode
+    field = args.field
     
-    # # load general parameters
-    # with open(inPath, 'r') as f:
-    #     js = json.load(f)
-    # load scan parameters
-    #with open(inScan, 'r') as f:
-    #    scan = json.load(f)
-    scan = genIDXs(inPath)
+    # load general parameters
+    # load general parameters
+    with open(inPath, 'r') as f:
+        js = json.load(f)
+    scan = genIDXs(js)
 
-    
+    # generate output folder
     os.makedirs(outImg, exist_ok=True)
     
+    # define what to use for image (single value)
     mL1 = ["degComTheta", "degComPhi", "degVarTheta", "degVarPhi", 
            "bsComTheta", "bsComPhi", "bsVarTheta", "bsVarTheta", "pixVar"]
+    # make image out of values
     for m in mL1:
         img = np.zeros((scan["x"]["steps"], scan["y"]["steps"], scan["z"]["steps"]), dtype=np.float32)
         for i, p in enumerate(inRes):
@@ -789,7 +778,10 @@ def constImag(args):
         pathOut = outImg + "/" + m + ".tif"    
         tiff.imwrite(pathOut, img)
     
+    # define what to use for image (vector of fit parameters)
     mL2 = ["degTheFit", "bsTheFit"]
+    
+    # calc mu
     for m in mL2:
         img = np.zeros((scan["x"]["steps"], scan["y"]["steps"], scan["z"]["steps"]), dtype=np.float32)
         for i, p in enumerate(inRes):
@@ -798,7 +790,8 @@ def constImag(args):
             img[scan["x"]["idx"][i], scan["y"]["idx"][i], scan["z"]["idx"][i]] = res[m][1]
         pathOut = outImg + "/" + m + "_mu.tif"    
         tiff.imwrite(pathOut, img)
-        
+    
+    # calc sig
     for m in mL2:
         img = np.zeros((scan["x"]["steps"], scan["y"]["steps"], scan["z"]["steps"]), dtype=np.float32)
         for i, p in enumerate(inRes):
@@ -807,7 +800,9 @@ def constImag(args):
             img[scan["x"]["idx"][i], scan["y"]["idx"][i], scan["z"]["idx"][i]] = res[m][2]
         pathOut = outImg + "/" + m + "_sig.tif"    
         tiff.imwrite(pathOut, img)
-    print(f"----- constitute image mode={mode} -----", flush=True)
+    
+    # print statement
+    print(f"----- constitute image mode={field} -----", flush=True)
     
 #%% main
 if __name__ == "__main__":
@@ -832,9 +827,10 @@ if __name__ == "__main__":
     add_command(subParsers, "propDetVol", propDetVol, parents=[ioParser])
     add_command(subParsers, "genSysPSF", genSysPSF, parents=[ioParser])
     add_command(subParsers, "genSysPS", genSysPS, parents=[ioParser])
-    add_command(subParsers, "genHisto", genHisto, parents=[ioParser]).add_argument("--mode", default="sys", choices=["sys","exc","det"])
+    add_command(subParsers, "genSysField", genSysField, parents=[ioParser]).add_argument("--modes", default="MTF", choices=["MTF","PS","dodgyI"])
+    add_command(subParsers, "genHisto", genHisto, parents=[ioParser]).add_argument("--field", default="sys", choices=["sys","exc","det"])
     add_command(subParsers, "calcBrillo", calcBrillo, parents=[ioParser])
-    add_command(subParsers, "constImag", constImag, parents=[ioParser]).add_argument("--mode", default="sys", choices=["sys","exc","det"])
+    add_command(subParsers, "constImag", constImag, parents=[ioParser]).add_argument("--field", default="sys", choices=["sys","exc","det"])
     
     if len(sys.argv) <= 1:
         print("----- debug mode -----")
@@ -849,7 +845,6 @@ if __name__ == "__main__":
             "hDimag": "../results/01_detHimag.tif",
             "thetaVol": "../results/01_thetaVol.tif",
             "phiVol": "../results/01_phiVol.tif",
-            "scanPara": "../results/01_scanPara.json",
             "hErealScat": "../results/02_excHrealScat_0.tif",
             "hEimagScat": "../results/02_excHimagScat_0.tif",
             "hDrealScat": "../results/02_detHrealScat_0.tif",
@@ -867,10 +862,10 @@ if __name__ == "__main__":
         dc2 = ["genExcField", "--input", p["para"], "--output", p["hEreal"], p["hEimag"]]
         dc3 = ["genDetField", "--input", p["para"], "--output", p["hDreal"], p["hDimag"]]
         dc4 = ["genAngleSpace", "--input", p["para"], "--output", p["thetaVol"], p["phiVol"]]
-        dc5 = ["genIDXs", "--input", p["para"], "--output", p["scanPara"]]
-        dc6 = ["propExcVol", "--input", p["para"], p["scanPara"], p["hEreal"],
+        #dc5 = ["genIDXs", "--input", p["para"], "--output", p["scanPara"]]
+        dc6 = ["propExcVol", "--input", p["para"], p["hEreal"],
                p["hEimag"], p["propVol"], "--output", p["hErealScat"], p["hEimagScat"]]
-        dc7 = ["propDetVol", "--input", p["para"], p["scanPara"], p["hDreal"], 
+        dc7 = ["propDetVol", "--input", p["para"], p["hDreal"], 
                p["hDimag"], p["propVol"], "--output", p["hDrealScat"], p["hDimagScat"]]
         dc8 = ["genSysPSF", "--input", p["para"], p["hErealScat"], p["hEimagScat"], 
                p["hDrealScat"], p["hDimagScat"], "--output", p["sysHReal"], p["sysHImag"]]
@@ -880,20 +875,20 @@ if __name__ == "__main__":
                 p["psSys"], p["hErealScat"], p["hEimagScat"], p["hDrealScat"], p["hDimagScat"], 
                 "--output", p["resDeg"], "--mode", "sys"]
         dc11 = ["calcBrillo", "--input", p["para"], p["resDeg"], "--output", p["resBS"]]
-        dc12 = ["constImag", "--input", p["para"],p["scanPara"], p["resBS"], "--output", p["resDir"], "--mode", "sys"]
+        dc12 = ["constImag", "--input", p["para"], p["resBS"], "--output", p["resDir"], "--mode", "sys"]
                 
         # run functions
-        args1 = parser.parse_args(dc1); args1.func(args1)
-        args2 = parser.parse_args(dc2); args2.func(args2)
-        args3 = parser.parse_args(dc3); args3.func(args3)
-        args4 = parser.parse_args(dc4); args4.func(args4)
-        args5 = parser.parse_args(dc5); args5.func(args5)
-        args6 = parser.parse_args(dc6); args6.func(args6)
-        args7 = parser.parse_args(dc7); args7.func(args7)
-        args8 = parser.parse_args(dc8); args8.func(args8)
-        args9 = parser.parse_args(dc9); args9.func(args9)
-        args10 = parser.parse_args(dc10); args10.func(args10)
-        args11 = parser.parse_args(dc11); args11.func(args11)  
+        # args1 = parser.parse_args(dc1); args1.func(args1)
+        # args2 = parser.parse_args(dc2); args2.func(args2)
+        # args3 = parser.parse_args(dc3); args3.func(args3)
+        # args4 = parser.parse_args(dc4); args4.func(args4)
+        # #args5 = parser.parse_args(dc5); args5.func(args5)
+        # args6 = parser.parse_args(dc6); args6.func(args6)
+        # args7 = parser.parse_args(dc7); args7.func(args7)
+        # args8 = parser.parse_args(dc8); args8.func(args8)
+        # args9 = parser.parse_args(dc9); args9.func(args9)
+        # args10 = parser.parse_args(dc10); args10.func(args10)
+        # args11 = parser.parse_args(dc11); args11.func(args11)  
         args12 = parser.parse_args(dc12); args12.func(args12) 
         
     else: 

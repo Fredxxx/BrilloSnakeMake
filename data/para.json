@@ -21,8 +21,8 @@
   },
   
   "scanPara": {
-    "xSteps": 3,
-    "ySteps": 3,
+    "xSteps": 2,
+    "ySteps": 2,
     "zSteps": 1,
     "xRange": 128
   },
@@ -49,6 +49,11 @@
     "pad": 3,
     "nOff": 1.33,
     "showImg": 0,
-    "globalPlotScaling": [0, 0, 0.01, 0, 3.25]
+    "globalPlotScaling": [0, 0, 0.01, 0, 3.25],
+    "MTF": 1,
+    "OTF": 0, 
+    "PS": 1,
+    "dodgyI":0,
+    "stat": 0
   }
 }

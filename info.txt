@@ -33,27 +33,6 @@
 		"test in home completed successfully?"
 		"cluster specifics input RAM and so on - debug?"
 		"how to edit files (snakefile, fun.py, para.json)"
-	"expand() local windows": 
-		"temp() not working properly"
-		"but if using snakemake --delete-temp-outputs it delets it"
-		"hopefully just Windows accessing temp() file issue - nope also on cluster"
-		 remove rule all inputs only last one #update snakemake 9.19.0 
-	"wildcards correctly used?": 
-		"idx": 
-			"dynamically loaded with function getMaxIDX()"
-			"feels odd to load that for every expand()!"
-			"do not understand checkpoint where, when, why?"
-			"more elegant way? wildcards are desinged for this or?"
-		"modes": 
-			"dynamical also changes amount of in/outputs"
-			"correctly implemented?"
-			"more elegant way using wildcards?"
-	"rule constImag":
-		"dynamic inputs -> follow up from modes issue"
-		"output not file sensitive only folder -> feels wrong"
-		".snakemake_timestamp, what is this?"
-		"is there a correct way to do this without defining every output?"
-		"move result JSONs into seperate folder or data -> is there a convention?"
 	"cosmetics":
 		"separate print out without all snakemake messages? Python only?"
 		"visualise workflow with mermaid?"
