@@ -15,8 +15,6 @@
 	  "goToFolder": "cd C:/Users/goerlitz/Documents/BrilloSnakeMake"
 	  "activateEnv": "mamba activate snakemakeEnv"
 
-  "Lab PowerShell":
-	  "soften execution policy": "Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass"
 
 "Stuff":
 	"visualise": "snakemake --cores 1 --dag mermaid-js > dag.md"

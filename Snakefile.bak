@@ -48,11 +48,6 @@ rule loadPadSampleVol:
         para = "data/para.json"
     output:
         propVol = "results/01_propVol.tif"
-    threads: 1
-    resources:
-        mem_mb = 2000
-        time_min = 15
-        #gpu_mem_mb=24000
     shell:
         """
         python scripts/fun.py loadPadSampleVol \
