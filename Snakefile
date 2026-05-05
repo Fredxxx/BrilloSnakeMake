@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 p = "/scratch/goerlitz/brilloSM/"
 
 rule all:
@@ -12,51 +11,6 @@ rule all:
         p + "results/01_detHimag.tif",
         p + "results/02_excHrealScat_0.tif",
         p + "results/02_detHrealScat_0.tif"
-=======
-import json
-
-def getMaxIDX():
-    with open("data/para.json", "r") as f:
-        js = json.load(f)
-        idxMax = js["scanPara"]["xSteps"]*js["scanPara"]["xSteps"]
-    return list(range(idxMax))
-
-with open("data/para.json", "r") as f:
-    js = json.load(f)
-
-print(f"config file: {js}")
-
-fields = []
-if js["calc"]["sys"] == 1:
-    fields.append("sys")
-if js["calc"]["exc"] == 1:
-    fields.append("exc")
-if js["calc"]["det"] == 1:
-    fields.append("det")
-
-print(f"fields: {fields}")
-
-modes = []
-if js["adv"]["MTF"] ==1:
-    modes.append("MTF")
-if js["adv"]["OTF"] ==1:
-    modes.append("OTF")
-if js["adv"]["PS"] ==1:
-    modes.append("PS")
-if js["adv"]["dodgyI"] ==1:
-    modes.append("dodgyI")
-if js["adv"]["stat"] ==1:
-    modes.append("stat")
-
-print(f"modes: {modes}")
-
-rule all:
-    input:
-        "results/01_propVol.tif"
-        #expand("results/fin_{mode}_{field}", mode = modes, field=fields)
-        #expand("results/04_resBS_{mode}_{field}_{idx}.json", mode = modes, field=fields, idx=getMaxIDX())
-        #expand("results/03_sysHImag_{mode}_{field}_{idx}.tif", mode = modes, field=fields, idx=getMaxIDX()),
->>>>>>> ed2711b9d0fb88dbd22935a0af784b49735b4750
 
 
 #rule test:
@@ -80,21 +34,12 @@ rule loadPadSampleVol:
     input:
         para = "data/para.json"
     output:
-<<<<<<< HEAD
         propVol = p + "results/01_propVol.tif"
     threads: 1
     resources:
         slurm_partition="bigmem",
         mem_mb=1024000,
         runtime=60
-=======
-        propVol = "results/01_propVol.tif"
-    threads: 1
-    resources:
-        mem_mb = 2000
-        time_min = 15
-        #gpu_mem_mb=24000
->>>>>>> ed2711b9d0fb88dbd22935a0af784b49735b4750
     shell:
         "python scripts/funCPU.py loadPadSampleVol --input {input.para} --output {output}"
 

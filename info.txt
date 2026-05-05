@@ -27,7 +27,6 @@ srun: error: smeb01-2: task 0: Out Of Memory
 	  "goToFolder": "cd C:/Users/goerlitz/Documents/BrilloSnakeMake"
 	  "activateEnv": "mamba activate snakemakeEnv"
 
-<<<<<<< HEAD
   "Cluster": 
 	  "load python module": "module load Python/3.12.3-GCCcore-13.3.0"
 	  "acitvate env": "source ~/projectsHPC/BrilloSnakeMake/snakemakeEnv/bin/activate"
@@ -36,10 +35,6 @@ srun: error: smeb01-2: task 0: Out Of Memory
 	  watch -n 2 "squeue --format='%.18i %.9P %.12j %.8u %.8T %.10M %.9l %.6D %15R %8a %8b %2C %h %p' --me"
 	  "job efficiency": seff 53366673
 	  "cluster feedback": scontrol show job=53364214
-=======
-  "Lab PowerShell":
-	  "soften execution policy": "Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass"
->>>>>>> ed2711b9d0fb88dbd22935a0af784b49735b4750
 
 "Stuff":
 	"visualise": "snakemake --cores 1 --dag mermaid-js > dag.md"
