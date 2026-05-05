@@ -1,88 +1,85 @@
-import json
-#import os
-#os.environ["PYOPENCL_COMPILER_OUTPUT"] = "1"
-#os.environ["PYOPENCL_CTX"] = "0" # Erzwingt NVIDIA
-
-#import gputools
-#print(gputools.get_device().device.name)
-
-def getMaxIDX():
-    with open("data/para.json", "r") as f:
-        js = json.load(f)
-        idxMax = js["scanPara"]["xSteps"]*js["scanPara"]["xSteps"]
-    return list(range(idxMax))
-
-with open("data/para.json", "r") as f:
-    js = json.load(f)
-
-print(f"config file: {js}")
-
-fields = []
-if js["calc"]["sys"] == 1:
-    fields.append("sys")
-if js["calc"]["exc"] == 1:
-    fields.append("exc")
-if js["calc"]["det"] == 1:
-    fields.append("det")
-
-print(f"fields: {fields}")
-
-modes = []
-if js["adv"]["MTF"] ==1:
-    modes.append("MTF")
-if js["adv"]["OTF"] ==1:
-    modes.append("OTF")
-if js["adv"]["PS"] ==1:
-    modes.append("PS")
-if js["adv"]["dodgyI"] ==1:
-    modes.append("dodgyI")
-if js["adv"]["stat"] ==1:
-    modes.append("stat")
-
-print(f"modes: {modes}")
+p = "/scratch/goerlitz/brilloSM/"
 
 rule all:
     input:
-        #expand("results/04_resBS_{mode}_{field}_{idx}.json", mode = modes, field=fields, idx=getMaxIDX()),
-        expand("results/fin_{mode}_{field}", mode = modes, field=fields)
-        #expand("results/04_resBS_{mode}_{field}_{idx}.json", mode = modes, field=fields, idx=getMaxIDX())
-        #expand("results/03_sysHImag_{mode}_{field}_{idx}.tif", mode = modes, field=fields, idx=getMaxIDX()),
+        p + "results/01_propVol.tif",
+        p + "results/01_phiVol.tif",
+        p + "results/01_thetaVol.tif",
+        p + "results/01_excHreal.tif",
+        p + "results/01_excHimag.tif",
+        p + "results/01_detHreal.tif",
+        p + "results/01_detHimag.tif",
+        p + "results/02_excHrealScat_0.tif",
+        p + "results/02_detHrealScat_0.tif"
 
+
+#rule test:
+#    input:
+#        para = "data/para.json"
+#    output:
+#        propVol = "results/01_propVol.tif"
+#    threads: 1
+#    resources:
+#        mem_mb=2000,
+#        time_min=2
+#        #gpu_mem_mb=24000
+#    shell:
+#        """
+#        python scripts/fun.py test \
+#        --input {input.para} \
+#        --output {output.propVol} 
+#        """
 
 rule loadPadSampleVol:
     input:
         para = "data/para.json"
     output:
-        propVol = "results/01_propVol.tif"
+        propVol = p + "results/01_propVol.tif"
+    threads: 1
+    resources:
+        slurm_partition="bigmem",
+        mem_mb=1024000,
+        runtime=60
     shell:
-        """
-        python scripts/fun.py loadPadSampleVol \
-        --input {input.para} \
-        --output {output.propVol}
-        """
+        "python scripts/funCPU.py loadPadSampleVol --input {input.para} --output {output}"
 
 rule genExcField:
     input:
         para = "data/para.json" 
     output: 
-        excHreal = "results/01_excHreal.tif",
-        excHimag = "results/01_excHimag.tif"
+        excHreal = p + "results/01_excHreal.tif",
+        excHimag = p + "results/01_excHimag.tif"
+    threads: 1
+    resources:
+        slurm_partition="gpu-el8",
+        constraint="rome,gpu=3090",
+        gres="shard:1",
+        gpu_mem_mb=64,
+        mem_mb=24000,
+        runtime=15
     shell:
         """
-        python scripts/fun.py genExcField \
+        python scripts/funGPU.py genExcField \
         --input {input.para}  \
         --output {output.excHreal} {output.excHimag} 
         """
-
 rule genDetField:
     input:
         para = "data/para.json"
     output: 
-        detHreal = "results/01_detHreal.tif",
-        detHimag = "results/01_detHimag.tif"
+        detHreal = p + "results/01_detHreal.tif",
+        detHimag = p + "results/01_detHimag.tif"
+    threads: 1
+    resources:
+        slurm_partition="gpu-el8",
+        constraint="rome,gpu=3090",
+        gres="shard:1",
+        gpu_mem_mb=64,
+        mem_mb=24000,
+        runtime=15
     shell:
         """
-        python scripts/fun.py genDetField \
+        python scripts/funGPU.py genDetField \
         --input {input.para} \
         --output {output.detHreal} {output.detHimag} 
         """
@@ -91,11 +88,15 @@ rule genAngleSpace:
     input:
         para = "data/para.json"
     output:
-        thetaVol = "results/01_thetaVol.tif",
-        phiVol = "results/01_phiVol.tif"
+        thetaVol = p + "results/01_thetaVol.tif",
+        phiVol = p + "results/01_phiVol.tif"
+    threads: 1
+    resources:
+        mem_mb=48000,
+        runtime=15
     shell:
         """
-        python scripts/fun.py genAngleSpace \
+        python scripts/funCPU.py genAngleSpace \
         --input {input.para} \
         --output {output.thetaVol} {output.phiVol} 
         """
@@ -103,15 +104,23 @@ rule genAngleSpace:
 rule propExcVol:
     input:
         para = "data/para.json",
-        inPSFreal = "results/01_excHreal.tif",
-        inPSFimag = "results/01_excHimag.tif",
-        inPropVol = "results/01_propVol.tif"
+        inPSFreal = p + "results/01_excHreal.tif",
+        inPSFimag = p + "results/01_excHimag.tif",
+        inPropVol = p + "results/01_propVol.tif"
+    threads: 1
+    resources:
+        slurm_partition="gpu-el8",
+        constraint="rome,gpu=3090",
+        gres="shard:1", #"gpu:3090:4"
+        gpu_mem_mb=3000,
+        mem_mb=76000,
+        runtime=30
     output:
-        outPSFreal = temp("results/02_excHrealScat_{idx}.tif"),
-        outPSFimag = temp("results/02_excHimagScat_{idx}.tif")
+        outPSFreal = temp(p + "results/02_excHrealScat_{idx}.tif"),
+        outPSFimag = temp(p + "results/02_excHimagScat_{idx}.tif")
     shell:
         """
-        python scripts/fun.py propExcVol \
+        python scripts/funGPU.py propExcVol \
         --input {input.para} {input.inPSFreal} {input.inPSFimag} {input.inPropVol}\
         --output {output.outPSFreal} {output.outPSFimag}
         """
@@ -119,150 +128,23 @@ rule propExcVol:
 rule propDetVol:
     input:
         para = "data/para.json",
-        inPSFreal = "results/01_detHreal.tif",
-        inPSFimag = "results/01_detHimag.tif",
-        inPropVol = "results/01_propVol.tif"
+        inPSFreal = p + "results/01_detHreal.tif",
+        inPSFimag = p + "results/01_detHimag.tif",
+        inPropVol = p + "results/01_propVol.tif"
     output:
-        outPSFreal = temp("results/02_detHrealScat_{idx}.tif"),
-        outPSFimag = temp("results/02_detHimagScat_{idx}.tif")
+        outPSFreal = temp(p + "results/02_detHrealScat_{idx}.tif"),
+        outPSFimag = temp(p + "results/02_detHimagScat_{idx}.tif")
+    threads: 1
+    resources:
+        slurm_partition="gpu-el8",
+        constraint="rome,gpu=3090",
+        gres="shard:1", #"gpu:3090:4"
+        gpu_mem_mb=3000,
+        mem_mb=76000,
+        runtime=30
     shell:
         """
-        python scripts/fun.py propDetVol \
+        python scripts/funGPU.py propDetVol \
         --input {input.para} {input.inPSFreal} {input.inPSFimag} {input.inPropVol}\
         --output {output.outPSFreal} {output.outPSFimag}
-        """
-
-#rule genSysPSF:
-#    input:
-#        para = "data/para.json",
-#        inPSFrealExc = "results/02_excHrealScat_{idx}.tif",
-#        inPSFimagExc = "results/02_excHimagScat_{idx}.tif", 
-#        inPSFrealDet = "results/02_detHrealScat_{idx}.tif",
-#        inPSFimagDet = "results/02_detHimagScat_{idx}.tif"
-#    output:
-#        sysHReal = temp("results/03_sysHReal_{modes}_{idx}.tif"),
-#        sysHImag = temp("results/03_sysHImag_{modes}_{idx}.tif")
-#    wildcard_constraints:
-#        modes="MTF|PS|OTF|dodgyI"
-#    shell:
-#        """
-#        python scripts/fun.py genSysPSF \
-#        --input {input.para} {input.inPSFrealExc} {input.inPSFimagExc} \
-#                {input.inPSFrealDet} {input.inPSFimagDet}\
-#        --output {output.sysHReal} {output.sysHImag}
-#        """
-
-#rule genSysPS:
-#    input:
-#        para = "data/para.json",
-#        insysHReal = "results/03_sysHReal_{modes}_{idx}.tif",
-#        insysHImag = "results/03_sysHImag_{modes}_{idx}.tif"
-#    output:
-#        outPS = temp("results/03_psSys_{modes}_{idx}.tif")
-#    wildcard_constraints:
-#        modes="MTF|PS|OTF|dodgyI"
-#    shell:
-#        """
-#        python scripts/fun.py genSysPS \
-#        --input {input.para} {input.insysHReal} {input.insysHImag} \
-#        --output {output.outPS}
-#        """
-
-rule genSysField:
-    input:
-        para = "data/para.json",
-        inPSFrealExc = "results/02_excHrealScat_{idx}.tif",
-        inPSFimagExc = "results/02_excHimagScat_{idx}.tif", 
-        inPSFrealDet = "results/02_detHrealScat_{idx}.tif",
-        inPSFimagDet = "results/02_detHimagScat_{idx}.tif"
-    output:
-        sysField = temp("results/03_sysField_{modes}_{idx}.tif")
-    wildcard_constraints:
-        modes="MTF|PS|OTF|dodgyI"
-    shell:
-        """
-        python scripts/fun.py genSysField \
-        --input {input.para} {input.inPSFrealExc} {input.inPSFimagExc} \
-                {input.inPSFrealDet} {input.inPSFimagDet}\
-        --output {output.sysField}
-        """
-
-def getGenHistoInputs(wildcards):
-
-    field = wildcards.field
-    idx = wildcards.idx
-    modes = wildcards.modes
-
-    inputs = ["data/para.json", "results/01_thetaVol.tif", "results/01_phiVol.tif"]
-
-    if field == "sys":
-        inputs.append(f"results/03_psSys_{modes}_{field}_{idx}.tif")
-    elif field == "exc":
-        inputs.extend([
-            f"results/02_excHrealScat_{idx}.tif",
-            f"results/02_excHimagScat_{idx}.tif"
-        ])
-    elif field == "det":
-        inputs.extend([
-            f"results/02_detHrealScat_{idx}.tif",
-            f"results/02_detHimagScat_{idx}.tif"
-        ])
-
-    print(f"[DEBUG] genHisto inputs for field={field}, idx={idx}: {inputs}")
-    
-    return inputs
-
-rule genHisto:
-    input:
-        #getGenHistoInputs
-        para = "data/para.json",
-        inThetVol = "results/01_thetaVol.tif",
-        inPhiVol = "results/01_phiVol.tif", 
-        inSysField = "results/03_sysField_{modes}_{idx}.tif"
-    output:
-        outRes = temp("results/04_resDeg_{modes}_{field}_{idx}.json")
-    wildcard_constraints:
-        modes="MTF|PS|OTF|dodgyI"
-    shell:
-        """
-        python scripts/fun.py genHisto \
-            --field {wildcards.field} \
-            --input {input} \
-            --output {output.outRes}
-        """
-
-rule calcBrillo:
-    input:
-        para = "data/para.json",
-        inRes = "results/04_resDeg_{modes}_{field}_{idx}.json"
-    output:
-        outRes = "results/04_resBS_{modes}_{field}_{idx}.json"
-    wildcard_constraints:
-        modes="MTF|PS|OTF|dodgyI"
-    shell:
-        """
-        python scripts/fun.py calcBrillo \
-        --input {input.para} {input.inRes} \
-        --output {output.outRes}
-        """
-
-def getCIinputs(wildcards):
-    outs = expand("results/04_resBS_{modes}_{field}_{idx}.json", 
-                   modes = wildcards.modes, 
-                   field=wildcards.field, 
-                   idx=getMaxIDX())
-    return outs
-
-rule constImag:
-    input:
-        para = "data/para.json",
-        inRes = getCIinputs
-    output:
-        outRes = directory("results/fin_{modes}_{field}")
-    shell:
-        """
-        python scripts/fun.py constImag \
-        --field {wildcards.field} \
-        --input {input.para} {input.inRes} \
-        --output {output.outRes}
         """

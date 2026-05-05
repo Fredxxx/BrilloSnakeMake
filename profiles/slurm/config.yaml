@@ -1,0 +1,8 @@
+executor: slurm
+jobs: 100
+latency-wait: 600
+retries: 0
+
+default-resources:
+  - "slurm_account=prevedel" # this is the default account for billing of used resources
+  - "slurm_partition=htc-el8" # bigmem - htc-el8 - this is the default partition jobs should be submitted to

@@ -1,13 +1,14 @@
 {
   "mainPath": "C:/Fred/temp/",
   "name": "90deg_tabea_32x32_gaussSheet1",
-  "scatPath": "C:\\Fred\\temp\\Tabea_mouseembryo_001_8bit_4x4x4bin.tif",
+  "scatPath": "./data/Tabea_mouseembryo_001.tif", 
+  "scatPaht2": "./data/Tabea_mouseembryo_001_8bit_4x4x4bin.tif",
   "mode": "GaussBeam",
   
   "optExc": {
-    "N": 256,
-    "d": 0.25,
-    "NA": 0.4,
+    "N": 1024,
+    "d": 0.10,
+    "NA": 0.05,
     "n0": 1.33,
     "lam": 0.532,
     "besselNAin": 0.796,
@@ -39,7 +40,7 @@
   "calc": {
     "fig": 0,
     "sys": 1,
-    "exc": 1,
+    "exc": 0,
     "det": 0,
     "theBins": [-180, 180, 901],
     "phiBins": [0, 180, 451]
@@ -47,7 +48,7 @@
   
   "adv": {
     "pad": 3,
-    "nOff": 1.33,
+    "nOff": 0,
     "showImg": 0,
     "globalPlotScaling": [0, 0, 0.01, 0, 3.25],
     "MTF": 1,
