@@ -1,20 +1,8 @@
 "ToDo":
-  1: test runs -> try on scratch with gpu vRAM and import biobeam
+  1: "check RAM and vRAM for each rule, for different sys and incoherent and coherent imaging"
+  2: "implement incoherent and coherent Imaging"
+  3: "implement MTF"
 
-Francesco:
-python scripts/funCPU.py genAngleSpace --input data/para.json --output results/01_thetaVol.tif results/01_phiVol.tif
-kx:   0.01 MB
-KX:   8192.00 MB
-KY:   8192.00 MB
-KZ:   8192.00 MB
-k_mag: 8192.00 MB
-theta: 8192.00 MB
------ angle space generated -----
-
-snakemake --profile ./profiles/slurm
-resources: tmpdir=<TBD>, disk_mb=1000, disk=1 GB, disk_mib=954, mem_mb=1024000, mem=1.02 TB, mem_mib=976563, slurm_account=prevedel, slurm_partition=htc-el8, time_min=15
-slurmstepd: error: Detected 1 oom_kill event in StepId=53351152.0. Some of the step tasks have been OOM Killed.
-srun: error: smeb01-2: task 0: Out Of Memory
 
 "Snakefile commands":
   "LapPC (cmd + pip?)":
@@ -27,22 +15,10 @@ srun: error: smeb01-2: task 0: Out Of Memory
 	  "goToFolder": "cd C:/Users/goerlitz/Documents/BrilloSnakeMake"
 	  "activateEnv": "mamba activate snakemakeEnv"
 
-<<<<<<< HEAD
-  "Cluster": 
-	  "load python module": "module load Python/3.12.3-GCCcore-13.3.0"
-	  "acitvate env": "source ~/projectsHPC/BrilloSnakeMake/snakemakeEnv/bin/activate"
-	  "run profile on slurm": "snakemake --profile profiles/slurm"
-	  "watch Francesco suggestion": squeue --format='%.18i %.9P %.12j %.8u %.8T %.10M %.9l %.6D %15R %8a %8b %2C %h %p' --me
-	  watch -n 2 "squeue --format='%.18i %.9P %.12j %.8u %.8T %.10M %.9l %.6D %15R %8a %8b %2C %h %p' --me"
-	  "job efficiency": seff 53366673
-	  "cluster feedback": scontrol show job=53364214
-=======
-  "Lab PowerShell":
-	  "soften execution policy": "Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass"
->>>>>>> ed2711b9d0fb88dbd22935a0af784b49735b4750
 
 "Stuff":
 	"visualise": "snakemake --cores 1 --dag mermaid-js > dag.md"
+
 
 "issues":
 	"time consuming function 1": "from scipy.ndimage import zoom scatVol = zoom(scatVol, scale_factors, order=1)"

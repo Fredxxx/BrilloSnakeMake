@@ -1,17 +1,12 @@
 {
   "mainPath": "C:/Fred/temp/",
   "name": "90deg_tabea_32x32_gaussSheet1",
-<<<<<<< HEAD
-  "scatPath": "./data/Tabea_mouseembryo_001.tif", 
-  "scatPaht2": "./data/Tabea_mouseembryo_001_8bit_4x4x4bin.tif",
-=======
   "scatPath": "C:\\Fred\\temp\\Tabea_mouseembryo_001.tif",
->>>>>>> ed2711b9d0fb88dbd22935a0af784b49735b4750
   "mode": "GaussBeam",
   
   "optExc": {
-    "N": 1024,
-    "d": 0.10,
+    "N": 768,
+    "d": 0.25,
     "NA": 0.05,
     "n0": 1.33,
     "lam": 0.532,

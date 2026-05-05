@@ -22,8 +22,8 @@ import matplotlib.pyplot as plt
 def genPaddArray(s, vol, pad):
     # 
     Z, Y, X = s * pad, s * pad, s
-    #padded_scatVol = np.random.normal(1.33335, 0.00074, size=(Z, Y, X)).astype(np.float16)
-    padded_scatVol = np.random.normal(1.3375, 0.0025, size=(Z, Y, X)).astype(np.float32)
+    padded_scatVol = np.random.normal(1.33335, 0.00074, size=(Z, Y, X)).astype(np.float16)
+    #padded_scatVol = np.random.normal(1.3375, 0.0025, size=(Z, Y, X)).astype(np.float32)
     
     vz, vy, vx = vol.shape
     
@@ -248,9 +248,9 @@ def loadPadSampleVol(args):
     # load image, swap axis, zoom
     scatVol = tiff.imread(js["scatPath"])/10000 + js["adv"]["nOff"]
     scatVol = np.swapaxes(scatVol, 0, 2)
-    #sf = 0.23/js["optExc"]["d"]
-    sf = 0.23*4//js["optExc"]["d"]
-    scale_factors = (sf, sf, 4*sf)
+    sf = 0.23/js["optExc"]["d"]
+    #sf = 0.23*4//js["optExc"]["d"]
+    scale_factors = (sf, sf, 1*sf)
     scatVol = zoom(scatVol, scale_factors, order=1)  # order=1 = linear interpolation
     
     # plot projections
@@ -878,7 +878,7 @@ if __name__ == "__main__":
         dc12 = ["constImag", "--input", p["para"], p["resBS"], "--output", p["resDir"], "--mode", "sys"]
                 
         # run functions
-        # args1 = parser.parse_args(dc1); args1.func(args1)
+        args1 = parser.parse_args(dc1); args1.func(args1)
         # args2 = parser.parse_args(dc2); args2.func(args2)
         # args3 = parser.parse_args(dc3); args3.func(args3)
         # args4 = parser.parse_args(dc4); args4.func(args4)
@@ -889,7 +889,7 @@ if __name__ == "__main__":
         # args9 = parser.parse_args(dc9); args9.func(args9)
         # args10 = parser.parse_args(dc10); args10.func(args10)
         # args11 = parser.parse_args(dc11); args11.func(args11)  
-        args12 = parser.parse_args(dc12); args12.func(args12) 
+        # args12 = parser.parse_args(dc12); args12.func(args12) 
         
     else: 
         args = parser.parse_args(); args.func(args)
